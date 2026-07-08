@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "STG-Mol: An AI-Driven Multi-Modal Virtual Screening Framework Integrating Sequence, Topology, and Geometry for NLRP3 Inhibitor Discovery"
+type: software
+authors:
+  - family-names: "Dong"
+    given-names: "Leilei"
+    affiliation: "College of Information Science and Engineering, Northeastern University, China"
+  - family-names: "Ma"
+    given-names: "Zhenhe"
+    affiliation: "College of Information Science and Engineering, Northeastern University, China"
+  - family-names: "Yang"
+    given-names: "Yanqiu"
+    affiliation: "College of Information Science and Engineering, Northeastern University, China"
+version: "1.0.0"
+date-released: "2026-08-01"
+url: "https://github.com/dongleil/STG-Mol"
+license: MIT
+keywords:
+  - "NLRP3 inflammasome"
+  - "AI-driven drug discovery"
+  - "multi-modal deep learning"
+  - "virtual screening"
+  - "molecular dynamics"
+  - "ADMET"
+preferred-citation:
+  type: article
+  title: "STG-Mol: An AI-Driven Multi-Modal Virtual Screening Framework Integrating Sequence, Topology, and Geometry for NLRP3 Inhibitor Discovery"
+  authors:
+    - family-names: "Dong"
+      given-names: "Leilei"
+    - family-names: "Ma"
+      given-names: "Zhenhe"
+    - family-names: "Yang"
+      given-names: "Yanqiu"
+  journal: "Computers in Biology and Medicine"
+  year: 2026
+  notes: "Under review"

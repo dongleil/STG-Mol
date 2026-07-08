@@ -1,0 +1,90 @@
+# ============================================================================
+# NLRP3 STG-Mol - v4.4 完整训练配置（与 train_v44.py 100% 对齐）
+# ============================================================================
+# 用法：
+#   cd /path/to/nlrp3_2
+#   python src/training/train_v44.py --config configs/v44/train_v44.yaml
+# ============================================================================
+
+experiment:
+  name: "STG-Mol_v4.4_main"
+  random_seed: 42                    # 【多种子实验：改这里 42/123/2024/3407/7】
+  use_gpu: true
+
+data:
+  train_path: "data/processed/new/balanced_split/train.csv"
+  val_path:   "data/processed/new/balanced_split/val.csv"
+  test_path:  "data/processed/new/balanced_split/test.csv"
+
+output:
+  base_dir: "results/v4_4_main"
+  save_models: true
+  save_figures: true
+
+# 一次运行可跑多个融合模式（消融时改这里）
+experiments:
+  - fusion_mode: "1D+2D+3D"
+    fusion_type: "self_attention"    # 【消融时可切 concat】
+
+# ============================================================================
+# 模型超参数
+# ============================================================================
+model:
+  hidden_dim:           128
+  atom_dim:             47
+  edge_dim:             14
+  mol2vec_dim:          300
+
+  # 正则化（v4.4）
+  dropout:              0.48
+  spherenet_dropout:    0.35
+
+  # 编码器结构
+  num_res_blocks:       1              # 1D 残差块数
+  dmpnn_layers:         5              # 2D 消息传递层数
+  spherenet_layers:     8              # 3D 交互层数（内部是 SchNet）
+  cutoff:               10.0           # 3D 截断半径 (Å)
+  use_virtual_node:     true
+
+  # 融合模块
+  fusion_num_heads:     8
+  fusion_num_layers:    2
+
+  # BalanceLoss 参数（v4.4 松绑至 0.08）
+  balance_loss_weight:  0.08
+  balance_upper:        0.55
+  balance_lower:        0.18
+
+# ============================================================================
+# 训练超参数
+# ============================================================================
+training:
+  batch_size:           64
+  epochs:               550
+  patience:             160
+  learning_rate:        0.00020        # 2×10⁻⁴
+  weight_decay:         0.028
+  warmup_pct:           0.25
+
+  # 分支差异化学习率倍率
+  branch_lr_scale:
+    encoder_1d:  0.10
+    encoder_2d:  2.5
+    encoder_3d:  0.80
+    fusion:      0.8
+    classifier:  1.0
+
+  # 损失
+  use_focal_loss:       true
+  label_smoothing:      0.18
+
+  # 权重平均
+  ema_decay:            0.9998
+  use_swa:              true
+  swa_start_epoch:      300
+
+  # 【核心创新】模态随机丢弃
+  modality_drop_prob:   0.48
+
+  # 【v4.4 新增】1D Mol2Vec 特征噪声
+  mol2vec_noise_std:    0.02

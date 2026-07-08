@@ -1,0 +1,55 @@
+# Ablation: 1D + 3D bi-modal (Concat fusion)
+# ==========================================================================
+
+experiment:
+  name: STG-Mol_ablation_modality_1d_3d
+  random_seed: 42
+  use_gpu: true
+data:
+  train_path: data/processed/new/balanced_split/train.csv
+  val_path: data/processed/new/balanced_split/val.csv
+  test_path: data/processed/new/balanced_split/test.csv
+output:
+  base_dir: results/ablation/modality_1d_3d
+  save_models: true
+  save_figures: true
+experiments:
+- fusion_mode: 1D+3D
+  fusion_type: concat
+model:
+  hidden_dim: 128
+  atom_dim: 47
+  edge_dim: 14
+  mol2vec_dim: 300
+  dropout: 0.48
+  spherenet_dropout: 0.35
+  num_res_blocks: 1
+  dmpnn_layers: 5
+  spherenet_layers: 8
+  cutoff: 10.0
+  use_virtual_node: true
+  fusion_num_heads: 8
+  fusion_num_layers: 2
+  balance_loss_weight: 0.08
+  balance_upper: 0.55
+  balance_lower: 0.18
+training:
+  batch_size: 64
+  epochs: 550
+  patience: 160
+  learning_rate: 0.0002
+  weight_decay: 0.028
+  warmup_pct: 0.25
+  branch_lr_scale:
+    encoder_1d: 0.1
+    encoder_2d: 2.5
+    encoder_3d: 0.8
+    fusion: 0.8
+    classifier: 1.0
+  use_focal_loss: true
+  label_smoothing: 0.18
+  ema_decay: 0.9998
+  use_swa: true
+  swa_start_epoch: 300
+  modality_drop_prob: 0.48
+  mol2vec_noise_std: 0.02

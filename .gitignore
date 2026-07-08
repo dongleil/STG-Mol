@@ -1,0 +1,84 @@
+# ============================================================================
+# STG-Mol — .gitignore
+# ============================================================================
+
+# ---- Structure / molecular files (typically large) ----
+*.pdb
+*.pdbqt
+*.mol2
+*.cif
+*.sdf
+*.xyz
+*.gro
+*.tpr
+*.trr
+*.xtc
+*.edr
+*.log
+*.dcd
+
+# ---- Compressed archives ----
+*.zip
+*.tar
+*.tar.gz
+*.tar.xz
+*.tgz
+*.gz
+*.bz2
+
+# ---- Model checkpoints & feature caches ----
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.pkl
+*.pickle
+*.npy
+*.npz
+*.parquet
+mol2vec_model.model
+
+# ---- Result / experiment directories ----
+results/
+screening_results/
+validation_results/
+experiments/
+runs/
+outputs/
+logs/
+cache/
+tmp/
+
+# ---- Data directory (large training / screening datasets) ----
+# Only the README under data/ is tracked; raw CSV / SDF files are ignored.
+data/**
+!data/README.md
+
+# ---- Python bytecode & virtual environments ----
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+env/
+.eggs/
+build/
+dist/
+
+# ---- Jupyter ----
+.ipynb_checkpoints/
+*.ipynb_meta
+
+# ---- IDE / editor ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---- System files ----
+.DS_Store
+Thumbs.db
+desktop.ini
