@@ -6,9 +6,9 @@ experiment:
   random_seed: 42
   use_gpu: true
 data:
-  train_path: data/processed/new/balanced_split/train.csv
-  val_path: data/processed/new/balanced_split/val.csv
-  test_path: data/processed/new/balanced_split/test.csv
+  train_path: data/processed/nlrp3/train.csv
+  val_path: data/processed/nlrp3/val.csv
+  test_path: data/processed/nlrp3/test.csv
 output:
   base_dir: results/ablation/modality_2d_3d
   save_models: true

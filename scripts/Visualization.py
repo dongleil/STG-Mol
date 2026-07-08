@@ -49,9 +49,9 @@ plt.rcParams.update({
 })
 
 # ==================== 配置区域 ====================
-TRAIN_FILE = 'data/processed/new/balanced_split/train.csv'
-VALID_FILE = 'data/processed/new/balanced_split/val.csv'
-TEST_FILE = 'data/processed/new/balanced_split/test.csv'
+TRAIN_FILE = 'data/processed/nlrp3/train.csv'
+VALID_FILE = 'data/processed/nlrp3/val.csv'
+TEST_FILE = 'data/processed/nlrp3/test.csv'
 SMILES_COL = 'smiles_standardized'
 
 OUTPUT_DIR = 'results/chemical_space'

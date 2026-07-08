@@ -2194,9 +2194,9 @@ def main():
         default_config = {
             'experiment': {'name': 'NLRP3_v4_4_Optimized'},
             'data': {
-                'train_path': 'data/processed/new/balanced_split/train.csv',
-                'val_path':   'data/processed/new/balanced_split/val.csv',
-                'test_path':  'data/processed/new/balanced_split/test.csv'
+                'train_path': 'data/processed/nlrp3/train.csv',
+                'val_path':   'data/processed/nlrp3/val.csv',
+                'test_path':  'data/processed/nlrp3/test.csv'
             },
             'output': {'base_dir': 'results/tuned_v4_4'},
             'experiments': [
