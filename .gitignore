@@ -49,10 +49,18 @@ logs/
 cache/
 tmp/
 
-# ---- Data directory (large training / screening datasets) ----
-# Only the README under data/ is tracked; raw CSV / SDF files are ignored.
-data/**
-!data/README.md
+# ---- Data directory ----
+# Small curated CSVs (train/val/test) ARE tracked so the paper is reproducible.
+# Only large files (ZINC library, pretrained Mol2Vec model, feature caches) are ignored.
+data/screening_libraries/
+data/decoy_generation/
+data/external/
+data/candidates/md_trajectories/
+data/**/mol2vec_model.pkl
+data/**/*.parquet
+data/**/*.npy
+data/**/*.npz
+data/**/features/
 
 # ---- Python bytecode & virtual environments ----
 __pycache__/

@@ -1,0 +1,26 @@
+{
+  "description": "NLRP3 inhibitor activity dataset (scaffold split, 8:1:1)",
+  "source": "ChEMBL v33 + PubChem + BindingDB (actives) + DUD-E (decoys)",
+  "activity_threshold": "IC50 <= 1 uM",
+  "smiles_column": "smiles_standardized",
+  "label_column": "label",
+  "splits": {
+    "train": {
+      "total": 2076,
+      "active": 522,
+      "inactive": 1554
+    },
+    "val": {
+      "total": 252,
+      "active": 72,
+      "inactive": 180
+    },
+    "test": {
+      "total": 193,
+      "active": 54,
+      "inactive": 139
+    }
+  },
+  "total_compounds": 2521,
+  "total_actives": 648
+}

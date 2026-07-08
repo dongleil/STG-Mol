@@ -1,0 +1,21 @@
+======================================================================
+PRE-SPLIT ANALYSIS REPORT
+Generated: 2025-12-11 17:26:50
+======================================================================
+
+1. BASIC STATISTICS
+----------------------------------------
+   n_molecules: 2521
+   n_positive: 648
+   n_negative: 1873
+   positive_ratio: 0.257040856802856
+
+2. SCAFFOLD ANALYSIS
+----------------------------------------
+   Total scaffolds: 1393
+   Singleton ratio: 77.1%
+   Max scaffold size: 98
+
+3. RECOMMENDATION
+----------------------------------------
+   Best strategy: Stratified Scaffold Split

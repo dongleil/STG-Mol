@@ -1,0 +1,21 @@
+{
+  "目标设定": {
+    "target_active": 900,
+    "target_inactive": 2700,
+    "target_ratio": "1:3.0",
+    "ic50_active_threshold_um": 10.0,
+    "ec50_active_threshold_um": 10.0,
+    "inactive_threshold_um": 50.0
+  },
+  "最终结果": {
+    "total_compounds": 2521,
+    "active_compounds": 648,
+    "inactive_compounds": 1873,
+    "actual_ratio": "1:2.89",
+    "active_achievement_pct": 72.0,
+    "inactive_achievement_pct": 69.37037037037037
+  },
+  "达标状态": {
+    "active_sufficient": false,
+    "inactive_sufficient": false,
+    "active_shortfall": 
