@@ -841,6 +841,19 @@ class MultiModalFusionNet(nn.Module):
             nn.Linear(hidden_dim // 2, 2)
         )
 
+        # ============= [Phase 1B] Multi-Task ADMET heads =============
+        # 5 个辅助 ADMET 任务(二分类):
+        #   [0] Lipinski RO5, [1] QED>0.5, [2] no PAINS,
+        #   [3] SA<5,          [4] LogP in [0,5]
+        self.num_admet_tasks = 5
+        self.admet_head = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim // 2),
+            nn.LayerNorm(hidden_dim // 2),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim // 2, self.num_admet_tasks * 2),   # 5 tasks × 2 classes
+        )
+
     def forward(self, mol2vec_feat=None, graph_2d=None, graph_3d=None) -> Dict:
         encodings = {}
         if '1D' in self.fusion_mode: encodings['1D'] = self.encoder_1d(mol2vec_feat)
@@ -868,7 +881,14 @@ class MultiModalFusionNet(nn.Module):
             raise ValueError(f"Unsupported fusion mode: {self.fusion_mode}")
 
         logits = self.classifier(fused)
-        return {'logits': logits, 'features': fused, 'weights': weights}
+        # [Phase 1B] ADMET multi-task heads: reshape to [B, num_tasks, 2]
+        admet_logits = self.admet_head(fused).view(
+            -1, self.num_admet_tasks, 2
+        )
+        return {'logits': logits,
+                'admet_logits': admet_logits,
+                'features': fused,
+                'weights': weights}
 
 
 # ============================================================================
@@ -1001,18 +1021,32 @@ def mol_to_3d_graph(smiles: str, cutoff: float = 5.0,
 class MultiModalMoleculeDataset(Dataset):
     def __init__(self, smiles_list: List[str], labels: np.ndarray,
                  mol2vec_features: Optional[np.ndarray] = None,
-                 fusion_mode: str = '1D+2D+3D', cutoff: float = 5.0):
-
+                 fusion_mode: str = '1D+2D+3D', cutoff: float = 5.0,
+                 admet_labels: Optional[np.ndarray] = None):
+        """
+        [Phase 1B] admet_labels: optional numpy array of shape [N, 5] with
+        binary labels for {lipinski, qed, pains, sa, logp}.
+        If None, zeros are used and the multi-task loss will be effectively
+        deactivated by config.
+        """
         self.fusion_mode   = fusion_mode
         self.cutoff        = cutoff
         self.data_list     = []
         self.valid_indices = []
 
+        # [Phase 1B] default ADMET to zeros if not provided
+        if admet_labels is None:
+            admet_labels = np.zeros((len(smiles_list), 5), dtype=np.int64)
+
         conformer_gen = ConformerGenerator() if '3D' in fusion_mode else None
         print(f"🔬 Building multi-modal dataset (mode: {fusion_mode})...")
 
         for idx, (smiles, label) in enumerate(zip(smiles_list, labels)):
-            sample = {'smiles': smiles, 'label': label}
+            sample = {
+                'smiles': smiles,
+                'label':  label,
+                'admet_labels': np.asarray(admet_labels[idx], dtype=np.int64),
+            }
             valid  = True
 
             if '1D' in fusion_mode and mol2vec_features is not None:
@@ -1053,6 +1087,13 @@ def collate_multimodal(batch: List[Dict]) -> Dict:
     result = {
         'labels': torch.tensor([s['label'] for s in batch], dtype=torch.long)
     }
+
+    # [Phase 1B] ADMET multi-task labels: [B, 5]
+    if 'admet_labels' in batch[0]:
+        result['admet_labels'] = torch.tensor(
+            np.stack([s['admet_labels'] for s in batch]),
+            dtype=torch.long,
+        )
 
     if 'mol2vec' in batch[0]:
         result['mol2vec'] = torch.tensor(
@@ -1291,6 +1332,12 @@ class MultiModalTrainer:
 
         criterion, lambda_div = self._build_criterion(class_weights)
 
+        # [Phase 1B] Multi-task ADMET auxiliary loss weight (read from config)
+        multitask_cfg = self.config.get('multitask', {}) if isinstance(self.config.get('multitask', {}), dict) else {}
+        self.admet_weight = float(multitask_cfg.get('admet_weight', 0.0))
+        if self.admet_weight > 0:
+            print(f"   📊 Multi-Task ADMET: enabled (admet_weight={self.admet_weight})")
+
         print(f"   📊 Class distribution: "
               f"{(all_train_labels == 0).sum()} neg, "
               f"{(all_train_labels == 1).sum()} pos")
@@ -1393,6 +1440,20 @@ class MultiModalTrainer:
             labels = batch['labels'].to(self.device)
             result = model(**kwargs)
             loss   = criterion(result['logits'], labels)
+
+            # [Phase 1B] Multi-Task ADMET auxiliary loss
+            admet_weight = getattr(self, 'admet_weight', 0.0)
+            if admet_weight > 0 and 'admet_labels' in batch and 'admet_logits' in result:
+                admet_labels = batch['admet_labels'].to(self.device)   # [B, 5]
+                admet_logits = result['admet_logits']                  # [B, 5, 2]
+                # Cross-entropy per task, then average
+                num_tasks = admet_logits.size(1)
+                admet_ce = 0.0
+                for t in range(num_tasks):
+                    admet_ce = admet_ce + F.cross_entropy(
+                        admet_logits[:, t, :], admet_labels[:, t])
+                admet_ce = admet_ce / num_tasks
+                loss = loss + admet_weight * admet_ce
 
             if lambda_div > 0 and result['weights'] is not None:
                 w       = result['weights']
@@ -2000,7 +2061,16 @@ def smart_read_csv(filepath: Path) -> pd.DataFrame:
         raise ValueError(f"Cannot find smiles/label columns in {filepath}")
     df = df.rename(columns={smiles_col: 'smiles', label_col: 'label'})
     df['label'] = df['label'].astype(int)
-    return df[['smiles', 'label']]
+
+    # [Phase 1B] Multi-Task ADMET labels (optional)
+    admet_cols = ['admet_lipinski', 'admet_qed', 'admet_pains',
+                  'admet_sa', 'admet_logp']
+    keep = ['smiles', 'label']
+    if all(c in df.columns for c in admet_cols):
+        for c in admet_cols:
+            df[c] = df[c].astype(int)
+        keep += admet_cols
+    return df[keep]
 
 
 def run_multimodal_experiment(config_path: str):
@@ -2067,15 +2137,25 @@ def run_multimodal_experiment(config_path: str):
 
         cutoff = config.get('model', {}).get('cutoff', 5.0)
 
+        # [Phase 1B] Extract ADMET labels if present
+        admet_cols = ['admet_lipinski', 'admet_qed', 'admet_pains',
+                      'admet_sa', 'admet_logp']
+        has_admet = all(c in train_df.columns for c in admet_cols)
+        admet_train = train_df[admet_cols].values if has_admet else None
+        admet_val   = val_df[admet_cols].values   if has_admet else None
+        admet_test  = test_df[admet_cols].values  if has_admet else None
+        if has_admet:
+            print(f"   📊 Multi-Task ADMET labels: DETECTED (5 tasks)")
+
         train_dataset = MultiModalMoleculeDataset(
             train_df['smiles'].tolist(), train_df['label'].values,
-            mol2vec_train, fusion_mode, cutoff)
+            mol2vec_train, fusion_mode, cutoff, admet_labels=admet_train)
         val_dataset = MultiModalMoleculeDataset(
             val_df['smiles'].tolist(), val_df['label'].values,
-            mol2vec_val, fusion_mode, cutoff)
+            mol2vec_val, fusion_mode, cutoff, admet_labels=admet_val)
         test_dataset = MultiModalMoleculeDataset(
             test_df['smiles'].tolist(), test_df['label'].values,
-            mol2vec_test, fusion_mode, cutoff)
+            mol2vec_test, fusion_mode, cutoff, admet_labels=admet_test)
 
         batch_size  = config.get('training', {}).get('batch_size', 32)
         num_workers = 4 if device.type == 'cuda' else 0
