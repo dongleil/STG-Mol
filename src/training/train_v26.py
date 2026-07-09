@@ -47,6 +47,7 @@ import pickle
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Tuple, Optional, Any, Union
+from collections import defaultdict
 
 import yaml
 import numpy as np
@@ -167,7 +168,59 @@ class Mol2VecEncoder(nn.Module):
 # Part 2: 2D Encoder - D-MPNN
 # ============================================================================
 
-def generate_atom_features(atom) -> List[float]:
+def _compute_pharmacophore_features(mol) -> dict:
+    """
+    [Phase 1 新增] 提取分子的药效团特征.
+
+    返回一个 dict, key 为药效团家族名, value 为该家族涉及的原子索引集合。
+    使用 RDKit 内置 BaseFeatures.fdef (无外部依赖)。
+    """
+    try:
+        from rdkit.Chem import ChemicalFeatures
+        from rdkit import RDConfig
+        import os
+        _fdef = os.path.join(RDConfig.RDDataDir, 'BaseFeatures.fdef')
+        if not hasattr(_compute_pharmacophore_features, '_factory'):
+            _compute_pharmacophore_features._factory = \
+                ChemicalFeatures.BuildFeatureFactory(_fdef)
+        factory = _compute_pharmacophore_features._factory
+
+        feats = factory.GetFeaturesForMol(mol)
+        result = defaultdict(set)
+        for f in feats:
+            fam = f.GetFamily()          # Donor / Acceptor / Hydrophobe / Aromatic ...
+            for idx in f.GetAtomIds():
+                result[fam].add(idx)
+        return dict(result)
+    except Exception:
+        return {}
+
+
+def _ensure_gasteiger_charges(mol) -> None:
+    """[Phase 1 新增] 若 mol 未计算 Gasteiger charges 则计算之 (in-place)."""
+    try:
+        # 若首个原子已有 _GasteigerCharge 属性,视为已计算
+        if mol.GetNumAtoms() > 0 and mol.GetAtomWithIdx(0).HasProp('_GasteigerCharge'):
+            return
+        AllChem.ComputeGasteigerCharges(mol)
+    except Exception:
+        pass
+
+
+def generate_atom_features(atom, pharma_dict: Optional[dict] = None) -> List[float]:
+    """
+    [Phase 1 增强版] 原子特征生成: 39 维基础 + 8 维电子/药效团 = 47 维.
+
+    新增 8 维 (Phase 1):
+        [39] Gasteiger 部分电荷 (归一化)
+        [40] 原子极化率 (查表, 归一化)
+        [41] 是否 H-bond 供体 (来自药效团)
+        [42] 是否 H-bond 受体
+        [43] 是否疏水中心
+        [44] 是否芳香药效团中心
+        [45] 是否可电离 (酸或碱)
+        [46] 隐式 H 数 (归一化)
+    """
     features = []
     try:
         symbol = atom.GetSymbol()
@@ -201,10 +254,43 @@ def generate_atom_features(atom) -> List[float]:
               'Cl': 3.16, 'Br': 2.96, 'I': 2.66, 'P': 2.19}
         features.append((en.get(symbol, 2.5) - 2.0) / 2.0)
         features.append(atom.GetMass() / 100.0)
-    except:
-        features = [0.0] * 39
 
-    return features[:39] if len(features) >= 39 else features + [0.0] * (39 - len(features))
+        # ============= [Phase 1 新增] 电子结构 + 药效团 8 维 =============
+        # [39] Gasteiger 部分电荷 (先在 mol 层预计算)
+        try:
+            pc = atom.GetDoubleProp('_GasteigerCharge')
+            if pc != pc or abs(pc) > 5.0:      # NaN 或异常值
+                pc = 0.0
+            features.append(pc / 2.0)          # 归一化到 ~[-1, 1]
+        except Exception:
+            features.append(0.0)
+
+        # [40] 原子极化率 (查表, 单位 Å^3, 归一化到 [0, 1])
+        polar = {'H': 0.667, 'C': 1.76, 'N': 1.10, 'O': 0.802, 'F': 0.557,
+                 'S': 2.90, 'Cl': 2.18, 'Br': 3.05, 'I': 5.35, 'P': 3.63}
+        features.append(polar.get(symbol, 1.5) / 5.5)
+
+        # [41-45] 药效团标签 (来自 pharma_dict)
+        atom_idx = atom.GetIdx()
+        pd = pharma_dict or {}
+        features.append(float(atom_idx in pd.get('Donor', set())))
+        features.append(float(atom_idx in pd.get('Acceptor', set())))
+        features.append(float(atom_idx in pd.get('Hydrophobe', set())
+                              or atom_idx in pd.get('LumpedHydrophobe', set())))
+        features.append(float(atom_idx in pd.get('Aromatic', set())))
+        features.append(float(atom_idx in pd.get('PosIonizable', set())
+                              or atom_idx in pd.get('NegIonizable', set())))
+
+        # [46] 隐式 H 数 (归一化)
+        try:
+            features.append(float(atom.GetNumImplicitHs()) / 4.0)
+        except Exception:
+            features.append(0.0)
+
+    except Exception:
+        features = [0.0] * 47
+
+    return features[:47] if len(features) >= 47 else features + [0.0] * (47 - len(features))
 
 
 def generate_bond_features(bond) -> List[float]:
@@ -237,7 +323,7 @@ def generate_bond_features(bond) -> List[float]:
 
 
 class DMPNN(nn.Module):
-    def __init__(self, in_channels: int = 39, edge_dim: int = 12,
+    def __init__(self, in_channels: int = 47, edge_dim: int = 12,
                  hidden_channels: int = 128, output_dim: int = 128,
                  num_layers: int = 3, dropout: float = 0.2):
         super().__init__()
@@ -418,7 +504,7 @@ class SphereNetInteraction(MessagePassing):
 
 
 class SphereNetEncoder(nn.Module):
-    def __init__(self, in_channels: int = 39, hidden_channels: int = 128,
+    def __init__(self, in_channels: int = 47, hidden_channels: int = 128,
                  output_dim: int = 128, num_layers: int = 4,
                  num_spherical: int = 7, num_radial: int = 6,
                  cutoff: float = 5.0, dropout: float = 0.2):
@@ -725,7 +811,7 @@ class MultiModalFusionNet(nn.Module):
 
         if '2D' in self.fusion_mode:
             self.encoder_2d = DMPNN(
-                in_channels=39, edge_dim=12,
+                in_channels=47, edge_dim=12,
                 hidden_channels=hidden_dim, output_dim=hidden_dim,
                 num_layers=config.get('dmpnn_layers', 3),
                 dropout=dropout
@@ -733,7 +819,7 @@ class MultiModalFusionNet(nn.Module):
 
         if '3D' in self.fusion_mode:
             self.encoder_3d = SphereNetEncoder(
-                in_channels=39, hidden_channels=hidden_dim,
+                in_channels=47, hidden_channels=hidden_dim,
                 output_dim=hidden_dim,
                 num_layers=config.get('spherenet_layers', 4),
                 num_spherical=config.get('num_spherical', 7),
@@ -825,7 +911,11 @@ def mol_to_2d_graph(smiles: str) -> Optional[Data]:
     if mol is None:
         return None
 
-    x = torch.tensor([generate_atom_features(a) for a in mol.GetAtoms()],
+    # [Phase 1] 预计算 Gasteiger 电荷 + 药效团
+    _ensure_gasteiger_charges(mol)
+    pharma_dict = _compute_pharmacophore_features(mol)
+
+    x = torch.tensor([generate_atom_features(a, pharma_dict) for a in mol.GetAtoms()],
                      dtype=torch.float)
     if x.size(0) == 0:
         return None
@@ -884,8 +974,11 @@ def mol_to_3d_graph(smiles: str, cutoff: float = 5.0,
 
     atom_features  = []
     atomic_numbers = []
+    # [Phase 1] 预计算 Gasteiger 电荷 + 药效团 (对 3D 优化后的分子)
+    _ensure_gasteiger_charges(mol_3d)
+    pharma_dict = _compute_pharmacophore_features(mol_3d)
     for atom in mol_3d.GetAtoms():
-        atom_features.append(generate_atom_features(atom))
+        atom_features.append(generate_atom_features(atom, pharma_dict))
         atomic_numbers.append(atom.GetAtomicNum())
 
     x = torch.tensor(atom_features,  dtype=torch.float)
