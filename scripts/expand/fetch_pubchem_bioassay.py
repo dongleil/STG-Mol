@@ -34,10 +34,11 @@ import urllib.error
 from pathlib import Path
 
 # Confirmed NLRP3-related PubChem BioAssay IDs
-# (verified live against PubChem PUG-REST — non-existent AIDs removed)
+# V5 strict curation: only AID 1508591 (direct NLRP3 inflammasome inhibition).
+# AID 1443 (IL-1β release) removed — it's a downstream proxy that introduced
+# ~1000 label-noisy actives in V4 and dropped Test AUC by ~0.11.
 NLRP3_AIDS = [
-    ('1508591', 'NLRP3 inflammasome inhibition SAR'),
-    ('1443', 'IL-1β release inhibition (NLRP3 downstream proxy)'),
+    ('1508591', 'NLRP3 inflammasome inhibition SAR (direct)'),
 ]
 
 BASE = 'https://pubchem.ncbi.nlm.nih.gov/rest/pug'
