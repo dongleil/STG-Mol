@@ -135,11 +135,19 @@ def main():
                 if s > best_sim:
                     best_sim, best_nn = s, tsmi
 
-        # Merge in activity_prob if provided
+        # Merge in activity_prob if provided (match by name, fall back to smiles)
         prob = np.nan
         if pred_df is not None:
-            match = pred_df[pred_df['name'] == name]
-            if len(match) > 0:
+            match = pd.DataFrame()
+            if 'name' in pred_df.columns:
+                match = pred_df[pred_df['name'] == name]
+            if match.empty:
+                for c in ('smiles', 'smiles_standardized', 'SMILES'):
+                    if c in pred_df.columns:
+                        match = pred_df[pred_df[c] == smi]
+                        if not match.empty:
+                            break
+            if not match.empty:
                 prob = float(match.iloc[0]['activity_prob'])
 
         # AD verdict

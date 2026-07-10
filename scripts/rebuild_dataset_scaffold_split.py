@@ -224,11 +224,10 @@ def main():
         print(f'    ... and {len(near_info) - 20} more')
 
     # Build external hold-out set explicitly from known_inhibitors.csv
+    # Preserves the `name` column so downstream tools can identify each
+    # published inhibitor (MCC950 / CY-09 / OLT1177 / Oridonin / Tranilast).
     ext = known.copy()
-    # add label=1 (known active), and any extra columns needed for consistency
     ext['label'] = 1
-    # Match column layout of main dataset if possible
-    # Just ensure smiles column name matches
     if smi_col != ksmi_col:
         ext[smi_col] = ext[ksmi_col]
     keep_cols = [c for c in df.columns
@@ -238,7 +237,11 @@ def main():
             ext[c] = ''
     ext['label'] = 1
     ext['_source'] = 'external_holdout'
-    ext = ext[keep_cols + ['_source']]
+    # Keep `name` (and any other known_inhibitors columns) up front
+    known_extras = [c for c in known.columns
+                    if c not in ('_inchikey', '_fp', ksmi_col)
+                    and c not in keep_cols]
+    ext = ext[known_extras + keep_cols + ['_source']]
 
     # Remove exact + near from working df
     remove_mask = exact_mask | pd.Series(near_mask)
