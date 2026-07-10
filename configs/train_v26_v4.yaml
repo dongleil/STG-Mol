@@ -1,0 +1,90 @@
+# ============================================================================
+# V4 dataset training config — expanded via BindingDB + PubChem + literature
+# + DUD-E decoys. Same v26 Multi-Task architecture, new dataset path.
+#
+# Expected dataset shape: ~6000-8000 molecules with 5 NLRP3 inhibitor
+# scaffold classes explicitly represented.
+# ============================================================================
+data:
+  train_path: data/processed/nlrp3_v4/train.csv
+  val_path: data/processed/nlrp3_v4/val.csv
+  test_path: data/processed/nlrp3_v4/test.csv
+
+experiment:
+  name: v26_v4_5seeds
+  random_seeds:
+  - 42
+  - 123
+  - 2024
+  - 3407
+  - 7
+  use_gpu: true
+
+multitask:
+  enabled: true
+  admet_weight: 0.2
+
+fusion:
+  modes:
+  - 1D+2D+3D
+
+model:
+  cutoff: 8.0
+  dmpnn_layers: 3
+  dropout: 0.54
+  hidden_dim: 112
+  num_radial: 6
+  num_spherical: 7
+  spherenet_dropout: 0.3
+  spherenet_layers: 3
+
+mol2vec:
+  embedding_dim: 300
+  model_path: data/mol2vec_model.pkl
+  radius: 1
+
+output:
+  base_dir: results/v26_v4
+  save_figures: true
+  save_models: true
+
+training:
+  batch_size: 128
+  branch_lr_scale:
+    classifier: 1.0
+    encoder_1d: 0.25
+    encoder_2d: 0.8
+    encoder_3d: 0.8
+    fusion: 1.5
+  class_weight: balanced
+  epochs: 300
+  learning_rate: 0.0003
+  loss:
+    gamma: 1.5
+    label_smoothing: 0.05
+    lambda_diversity: 0.15
+    max_pos_weight: 2.5
+    type: focal
+    use_class_weight: true
+  patience: 100
+  scheduler:
+    anneal_strategy: cos
+    div_factor: 10.0
+    final_div_factor: 1000.0
+    pct_start: 0.15
+    type: OneCycleLR
+  threshold_search:
+    beta: 1.2
+    min_recall: null
+    search_high: 0.55
+    search_low: 0.3
+    search_step: 0.005
+  weight_decay: 0.015
+
+visualization:
+  dpi: 300
+  plot_confusion_matrix: true
+  plot_learning_curve: true
+  plot_modality_weights: true
+  plot_pr: true
+  plot_roc: true
