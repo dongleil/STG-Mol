@@ -34,11 +34,10 @@ import urllib.error
 from pathlib import Path
 
 # Confirmed NLRP3-related PubChem BioAssay IDs
+# (verified live against PubChem PUG-REST — non-existent AIDs removed)
 NLRP3_AIDS = [
     ('1508591', 'NLRP3 inflammasome inhibition SAR'),
-    ('1443', 'IL-1β release inhibition (proxy)'),
-    ('1319407', 'NLRP3 ATP-dependent activation'),
-    ('1259410', 'caspase-1 via NLRP3'),
+    ('1443', 'IL-1β release inhibition (NLRP3 downstream proxy)'),
 ]
 
 BASE = 'https://pubchem.ncbi.nlm.nih.gov/rest/pug'
@@ -79,14 +78,19 @@ def fetch_active_inactive_cids(aid):
 
 def fetch_smiles_batch(cids, batch=100):
     """
-    Resolve CID → canonical SMILES in batches.
+    Resolve CID → SMILES in batches.
+
+    PubChem PUG-REST as of 2025 returns the property key `SMILES`
+    (previously `CanonicalSMILES`, deprecated). We request `SMILES`
+    directly and fall back to any legacy keys defensively.
     Returns dict {cid: smiles}.
     """
     out = {}
     cids = list(cids)
     for i in range(0, len(cids), batch):
         chunk = cids[i:i + batch]
-        url = f'{BASE}/compound/cid/{",".join(map(str, chunk))}/property/CanonicalSMILES/JSON'
+        url = (f'{BASE}/compound/cid/{",".join(map(str, chunk))}'
+               f'/property/SMILES/JSON')
         data = _get(url)
         if not data:
             continue
@@ -95,14 +99,17 @@ def fetch_smiles_batch(cids, batch=100):
             props = obj.get('PropertyTable', {}).get('Properties', [])
             for p in props:
                 cid = p.get('CID')
-                smi = p.get('CanonicalSMILES')
+                smi = (p.get('SMILES')
+                       or p.get('CanonicalSMILES')
+                       or p.get('IsomericSMILES'))
                 if cid and smi:
                     out[cid] = smi
         except Exception as e:
             print(f'    smiles parse error at batch {i}: {e}')
         time.sleep(0.3)   # be polite to NIH
         if (i + batch) % 500 == 0 and i > 0:
-            print(f'    resolved {i + batch}/{len(cids)} SMILES')
+            print(f'    resolved {min(i + batch, len(cids))}/{len(cids)} SMILES '
+                  f'(cumulative found: {len(out)})')
     return out
 
 
@@ -158,10 +165,18 @@ def main():
             'source_target': 'NLRP3',
         })
 
+    fieldnames = ['cid', 'smiles', 'label', 'source', 'data_source',
+                  'source_target']
     with open(args.output, 'w', newline='') as f:
-        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
-        w.writerows(rows)
+        if rows:
+            w.writerows(rows)
+
+    if not rows:
+        print('\n⚠ Empty result — check PubChem connectivity or SMILES-key '
+              'compatibility (script now expects `SMILES`).')
+        return
 
     n_pos = sum(1 for r in rows if r['label'] == 1)
     print(f'\n✓ Wrote {len(rows)} rows to {args.output}')
