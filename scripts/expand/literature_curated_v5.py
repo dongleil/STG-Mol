@@ -273,25 +273,35 @@ LITERATURE_INHIBITORS = [
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--output', required=True)
+    ap.add_argument('--max_ic50', type=float, default=10.0,
+                    help='Drop compounds with reported IC50 > this (μM). '
+                         'Default 10.0 (QSAR literature standard).')
     args = ap.parse_args()
 
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     fieldnames = ['name', 'smiles', 'class', 'ic50_um', 'source', 'label',
                   'data_source', 'source_target']
+
+    # Filter by IC50 threshold
+    filtered = [rec for rec in LITERATURE_INHIBITORS
+                if rec['ic50_um'] <= args.max_ic50]
+    n_dropped = len(LITERATURE_INHIBITORS) - len(filtered)
+
     with open(args.output, 'w', newline='', encoding='utf-8') as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
-        for rec in LITERATURE_INHIBITORS:
+        for rec in filtered:
             rec['data_source'] = 'Literature_curated_v5'
             rec['source_target'] = 'NLRP3'
             w.writerow(rec)
 
-    n = len(LITERATURE_INHIBITORS)
     classes = {}
-    for rec in LITERATURE_INHIBITORS:
+    for rec in filtered:
         classes[rec['class']] = classes.get(rec['class'], 0) + 1
 
-    print(f'\n✓ Wrote {n} curated NLRP3 inhibitors to {args.output}\n')
+    print(f'\n✓ Wrote {len(filtered)} curated NLRP3 inhibitors to {args.output}')
+    print(f'  IC50 filter: ≤ {args.max_ic50} μM  '
+          f'(dropped {n_dropped} weak inhibitors)\n')
     print('Class distribution:')
     for c, k in sorted(classes.items(), key=lambda x: -x[1]):
         print(f'  {c:35s}  {k}')
