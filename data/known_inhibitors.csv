@@ -1,0 +1,6 @@
+name,smiles,note
+MCC950,O=C(NS(=O)(=O)c1cnn(C)c1C)Nc1c2c(cc3c1CCC3)CCC2,"CRID3/MCC950 (Coll et al. Nat Med 2015; ChEMBL 5090362) — diarylsulfonylurea, terminated in phase II due to hepatotoxicity"
+CY-09,CC(=O)Nc1ccc(S(=O)(=O)N2CCC(NC(=O)Nc3ccc(Cl)cc3)CC2)cc1,"CY-09 (Jiang et al. JEM 2017; ChEMBL 4794388) — direct NLRP3 inhibitor targeting ATPase site"
+OLT1177,CC(C)(C(=O)C#N)S(=O)(=O)C(C)(C)C(=O)C#N,"Dapansutrile/OLT1177 (Marchetti et al. PNAS 2018; ChEMBL 4297547) — β-sulfonyl nitrile, phase III"
+Oridonin,CC(=C)C1CC[C@@]2(O)C[C@]3(O)C(=O)C=C4C(C)(C)[C@@H](O)CC[C@]4(C)[C@@]3(O)C[C@H]12,"Oridonin (He et al. Nat Commun 2018; ChEMBL 472143) — covalent NLRP3 inhibitor, natural product"
+Tranilast,COc1cc(/C=C/C(=O)Nc2ccccc2C(=O)O)ccc1OC,"Tranilast (Huang et al. EMBO Mol Med 2018; ChEMBL 491) — direct NLRP3 inhibitor, N-aroylanthranilate"
