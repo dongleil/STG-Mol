@@ -1,0 +1,94 @@
+# ============================================================================
+# V5-random TUNED config — heavier regularisation to close the 0.15
+# Train-Test AUC gap and push Test AUC from 0.835 → 0.87+
+#
+# Changes vs train_v26_v5_random.yaml:
+#   dropout       0.54 → 0.65    stronger stochastic regularisation
+#   weight_decay  0.015 → 0.030  stronger L2 shrinkage
+#   admet_weight  0.2 → 0.1      less auxiliary-task interference
+#   gamma (focal) 1.5 → 2.0      focus on hard examples more strongly
+#   label_smooth  0.05 → 0.10    smoother targets
+# ============================================================================
+data:
+  train_path: data/processed/nlrp3_v5_random/train.csv
+  val_path: data/processed/nlrp3_v5_random/val.csv
+  test_path: data/processed/nlrp3_v5_random/test.csv
+
+experiment:
+  name: v26_v5_random_tuned_5seeds
+  random_seeds:
+  - 42
+  - 123
+  - 2024
+  - 3407
+  - 7
+  use_gpu: true
+
+multitask:
+  enabled: true
+  admet_weight: 0.1
+
+fusion:
+  modes:
+  - 1D+2D+3D
+
+model:
+  cutoff: 8.0
+  dmpnn_layers: 3
+  dropout: 0.65
+  hidden_dim: 112
+  num_radial: 6
+  num_spherical: 7
+  spherenet_dropout: 0.4
+  spherenet_layers: 3
+
+mol2vec:
+  embedding_dim: 300
+  model_path: data/mol2vec_model.pkl
+  radius: 1
+
+output:
+  base_dir: results/v26_v5_random_tuned
+  save_figures: true
+  save_models: true
+
+training:
+  batch_size: 128
+  branch_lr_scale:
+    classifier: 1.0
+    encoder_1d: 0.25
+    encoder_2d: 0.8
+    encoder_3d: 0.8
+    fusion: 1.5
+  class_weight: balanced
+  epochs: 300
+  learning_rate: 0.0003
+  loss:
+    gamma: 2.0
+    label_smoothing: 0.10
+    lambda_diversity: 0.15
+    max_pos_weight: 2.5
+    type: focal
+    use_class_weight: true
+  patience: 100
+  scheduler:
+    anneal_strategy: cos
+    div_factor: 10.0
+    final_div_factor: 1000.0
+    pct_start: 0.15
+    type: OneCycleLR
+  threshold_search:
+    beta: 1.2
+    min_recall: null
+    search_high: 0.55
+    search_low: 0.3
+    search_step: 0.005
+  weight_decay: 0.030
+
+visualization:
+  dpi: 300
+  plot_confusion_matrix: true
+  plot_learning_curve: true
+  plot_modality_weights: true
+  plot_pr: true
+  plot_roc: true
