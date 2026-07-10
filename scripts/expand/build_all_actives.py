@@ -33,15 +33,27 @@ def collect(path, tag, active_only=True):
     if not path or not Path(path).exists():
         print(f'  ⚠ {path} missing, skipping.')
         return pd.DataFrame()
-    if Path(path).is_dir():
-        dfs = []
-        for name in ['train.csv', 'val.csv', 'test.csv']:
-            p = Path(path) / name
-            if p.exists():
-                dfs.append(pd.read_csv(p))
-        df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
-    else:
-        df = pd.read_csv(path)
+    read_kwargs = {'encoding_errors': 'replace'}
+    try:
+        if Path(path).is_dir():
+            dfs = []
+            for name in ['train.csv', 'val.csv', 'test.csv']:
+                p = Path(path) / name
+                if p.exists():
+                    dfs.append(pd.read_csv(p, encoding='utf-8', **read_kwargs))
+            df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+        else:
+            df = pd.read_csv(path, encoding='utf-8', **read_kwargs)
+    except (UnicodeDecodeError, TypeError):
+        # Retry without the newer encoding_errors kwarg (older pandas)
+        if Path(path).is_dir():
+            dfs = [pd.read_csv(Path(path) / n, encoding='utf-8',
+                               errors='ignore')
+                   for n in ['train.csv', 'val.csv', 'test.csv']
+                   if (Path(path) / n).exists()]
+            df = pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+        else:
+            df = pd.read_csv(path, encoding='utf-8', errors='ignore')
     if len(df) == 0:
         return df
     smi_col = _find_smi_col(df.columns)
@@ -73,7 +85,7 @@ def main():
     ]
     df = pd.concat([p for p in parts if len(p) > 0], ignore_index=True)
     df = df.drop_duplicates(subset='smiles', keep='first').reset_index(drop=True)
-    df.to_csv(args.output, index=False)
+    df.to_csv(args.output, index=False, encoding='utf-8')
     print(f'\n✓ Wrote {len(df)} unique actives to {args.output}')
     for src, count in df['source'].value_counts().items():
         print(f'  {src:25s}  {count}')

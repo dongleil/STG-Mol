@@ -136,7 +136,7 @@ def main():
                 'source_target': 'NLRP3',
             })
 
-    with open(args.output, 'w', newline='') as f:
+    with open(args.output, 'w', newline='', encoding='utf-8') as f:
         if not rows:
             print('No rows to write.')
             sys.exit(1)

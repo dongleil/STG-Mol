@@ -167,7 +167,7 @@ def main():
 
     fieldnames = ['cid', 'smiles', 'label', 'source', 'data_source',
                   'source_target']
-    with open(args.output, 'w', newline='') as f:
+    with open(args.output, 'w', newline='', encoding='utf-8') as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
         if rows:

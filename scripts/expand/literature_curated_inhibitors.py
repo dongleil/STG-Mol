@@ -198,7 +198,7 @@ LITERATURE_INHIBITORS = [
     {
         'name': 'sulfonyl_nitrile_3', 'smiles': 'CC(C)C(=O)C(C#N)C(=O)C(C)C',
         'class': 'sulfonyl_nitrile', 'ic50_um': 12.0,
-        'source': 'β-sulfonyl nitrile SAR series', 'label': 1,
+        'source': 'beta-sulfonyl nitrile SAR series', 'label': 1,
     },
     # Thiourea analogs
     {
@@ -256,7 +256,7 @@ def main():
 
     fieldnames = ['name', 'smiles', 'class', 'ic50_um', 'source', 'label',
                   'data_source', 'source_target']
-    with open(args.output, 'w', newline='') as f:
+    with open(args.output, 'w', newline='', encoding='utf-8') as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()
         for rec in LITERATURE_INHIBITORS:

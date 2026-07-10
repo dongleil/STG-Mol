@@ -213,7 +213,7 @@ def main():
             })
 
     # ---- Write ----------------------------------------------------------
-    with open(args.output, 'w', newline='') as f:
+    with open(args.output, 'w', newline='', encoding='utf-8') as f:
         w = csv.DictWriter(f, fieldnames=['smiles', 'label', 'source',
                                           'data_source', 'source_target'])
         w.writeheader()
