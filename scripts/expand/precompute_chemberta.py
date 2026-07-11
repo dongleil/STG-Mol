@@ -24,6 +24,7 @@ Usage:
         --model_name DeepChem/ChemBERTa-77M-MTR
 """
 import argparse
+import os
 import pickle
 import sys
 from pathlib import Path
@@ -58,10 +59,23 @@ def main():
                     help='HuggingFace model ID. Alternatives: '
                          'seyonec/ChemBERTa-zinc-base-v1, '
                          'DeepChem/ChemBERTa-77M-MLM')
+    ap.add_argument('--hf_endpoint',
+                    default='https://hf-mirror.com',
+                    help='HuggingFace mirror endpoint. Default '
+                         'https://hf-mirror.com works from mainland China. '
+                         'Set to https://huggingface.co for direct access.')
+    ap.add_argument('--local_model_dir', default=None,
+                    help='If set, load model from local directory instead '
+                         'of downloading (useful for air-gapped environments).')
     ap.add_argument('--batch_size', type=int, default=64)
     ap.add_argument('--device',
                     default='cuda' if torch.cuda.is_available() else 'cpu')
     args = ap.parse_args()
+
+    # Configure HuggingFace endpoint for mirror access
+    if args.hf_endpoint and 'HF_ENDPOINT' not in os.environ:
+        os.environ['HF_ENDPOINT'] = args.hf_endpoint
+        print(f'Using HuggingFace endpoint: {args.hf_endpoint}')
 
     try:
         from transformers import AutoTokenizer, AutoModel
@@ -89,9 +103,23 @@ def main():
     print(f'  → {len(all_smiles)} unique SMILES total')
 
     # ---- Load model ----------------------------------------------------
-    print(f'\n[2/3] Loading ChemBERTa model: {args.model_name}...')
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    model = AutoModel.from_pretrained(args.model_name)
+    src = args.local_model_dir if args.local_model_dir else args.model_name
+    print(f'\n[2/3] Loading ChemBERTa model: {src}...')
+    if args.local_model_dir and Path(args.local_model_dir).exists():
+        print(f'  Loading from local directory (no HuggingFace access needed)')
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(src)
+        model = AutoModel.from_pretrained(src)
+    except Exception as e:
+        print(f'\n❌ Failed to load model: {e}')
+        print(f'\nOptions:')
+        print(f'  1. Try mirror: --hf_endpoint https://hf-mirror.com  (default)')
+        print(f'  2. Try model:  --model_name seyonec/ChemBERTa-zinc-base-v1')
+        print(f'  3. Manual download: git clone https://hf-mirror.com/'
+              f'DeepChem/ChemBERTa-77M-MTR ./chemberta_local/')
+        print(f'                     then --local_model_dir ./chemberta_local')
+        print(f'  4. Or: set HF_HUB_OFFLINE=1 env var after first download.')
+        sys.exit(1)
     model.to(args.device).eval()
     hidden_size = model.config.hidden_size
     print(f'  Hidden size (embedding dim): {hidden_size}')
