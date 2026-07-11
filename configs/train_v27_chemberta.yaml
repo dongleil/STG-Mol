@@ -1,0 +1,102 @@
+# ============================================================================
+# V7 config: STG-Mol with ChemBERTa 1D encoder
+#
+# Diagnostic finding: RF+Morgan reaches AUC 0.88 on V6, but our
+# STG-Mol only 0.81 — the multi-modal DL architecture under-utilises
+# the signal on small (~3000-mol) NLRP3 dataset. ChemBERTa pretrained
+# on 77M SMILES provides much richer 1D representation than Mol2Vec
+# (300-d word2vec).
+#
+# Setup:
+#   1. Precompute ChemBERTa embeddings (384-d) for all V6 molecules
+#      → data/chemberta_embeddings_v6.pkl
+#   2. This config loads them via mol2vec.chemberta_pkl and bypasses
+#      the Mol2Vec featurizer. Model input dim adjusted automatically.
+# ============================================================================
+data:
+  train_path: data/processed/nlrp3_v6/train.csv
+  val_path: data/processed/nlrp3_v6/val.csv
+  test_path: data/processed/nlrp3_v6/test.csv
+
+experiment:
+  name: v27_chemberta_v6_5seeds
+  random_seeds:
+  - 42
+  - 123
+  - 2024
+  - 3407
+  - 7
+  use_gpu: true
+
+multitask:
+  enabled: true
+  admet_weight: 0.2
+
+fusion:
+  modes:
+  - 1D+2D+3D
+
+model:
+  cutoff: 8.0
+  dmpnn_layers: 3
+  dropout: 0.54
+  hidden_dim: 112
+  num_radial: 6
+  num_spherical: 7
+  spherenet_dropout: 0.3
+  spherenet_layers: 3
+
+# ChemBERTa configuration (V7 addition)
+mol2vec:
+  # Fallback if chemberta_pkl is not found or ChemBERTa disabled
+  embedding_dim: 300
+  model_path: data/mol2vec_model.pkl
+  # If this file exists, ChemBERTa embeddings are loaded and Mol2Vec
+  # is bypassed. Precompute with scripts/expand/precompute_chemberta.py
+  chemberta_pkl: data/chemberta_embeddings_v6.pkl
+
+output:
+  base_dir: results/v27_chemberta_v6
+  save_figures: true
+  save_models: true
+
+training:
+  batch_size: 128
+  branch_lr_scale:
+    classifier: 1.0
+    encoder_1d: 0.25
+    encoder_2d: 0.8
+    encoder_3d: 0.8
+    fusion: 1.5
+  class_weight: balanced
+  epochs: 300
+  learning_rate: 0.0003
+  loss:
+    gamma: 1.5
+    label_smoothing: 0.05
+    lambda_diversity: 0.15
+    max_pos_weight: 2.5
+    type: focal
+    use_class_weight: true
+  patience: 100
+  scheduler:
+    anneal_strategy: cos
+    div_factor: 10.0
+    final_div_factor: 1000.0
+    pct_start: 0.15
+    type: OneCycleLR
+  threshold_search:
+    beta: 1.2
+    min_recall: null
+    search_high: 0.55
+    search_low: 0.3
+    search_step: 0.005
+  weight_decay: 0.015
+
+visualization:
+  dpi: 300
+  plot_confusion_matrix: true
+  plot_learning_curve: true
+  plot_modality_weights: true
+  plot_pr: true
+  plot_roc: true

@@ -2110,7 +2110,47 @@ def run_multimodal_experiment(config_path: str):
 
     mol2vec_train = mol2vec_val = mol2vec_test = None
 
-    if any('1D' in mode for mode in fusion_modes):
+    # ------------------------------------------------------------------
+    # New (V7): if config provides a precomputed ChemBERTa embedding
+    # pickle, use it as a drop-in replacement for Mol2Vec. The pickle
+    # is produced by scripts/expand/precompute_chemberta.py and maps
+    # SMILES → hidden_size-d float32 embedding.
+    # ------------------------------------------------------------------
+    chemberta_pkl = config.get('mol2vec', {}).get('chemberta_pkl')
+    if chemberta_pkl and Path(chemberta_pkl).exists() and any('1D' in m for m in fusion_modes):
+        import pickle
+        with open(chemberta_pkl, 'rb') as _f:
+            _cb_data = pickle.load(_f)
+        _emb_dict = _cb_data['embeddings']
+        _hidden_size = _cb_data['hidden_size']
+        print(f"\n🧠 Loaded ChemBERTa embeddings ({_hidden_size}-d) "
+              f"for {len(_emb_dict)} molecules from {chemberta_pkl}")
+        print(f"   Bypassing Mol2Vec featurizer.")
+
+        def _featurize_cb(smiles_list):
+            out = np.zeros((len(smiles_list), _hidden_size), dtype=np.float32)
+            miss = 0
+            for i, s in enumerate(smiles_list):
+                emb = _emb_dict.get(s)
+                if emb is None:
+                    miss += 1
+                else:
+                    out[i] = emb
+            if miss:
+                print(f"   ⚠ {miss}/{len(smiles_list)} SMILES not in ChemBERTa pkl "
+                      f"(zero-filled)")
+            return out
+
+        mol2vec_train = _featurize_cb(train_df['smiles'].tolist())
+        mol2vec_val   = _featurize_cb(val_df['smiles'].tolist())
+        mol2vec_test  = _featurize_cb(test_df['smiles'].tolist())
+
+        # Ensure encoder_1d uses the right input dim
+        if 'model' not in config:
+            config['model'] = {}
+        config['model']['mol2vec_dim'] = _hidden_size
+
+    elif any('1D' in mode for mode in fusion_modes):
         if MOL2VEC_AVAILABLE:
             print("\n📊 Generating Mol2vec features...")
             featurizer = Mol2VecFeaturizer(
