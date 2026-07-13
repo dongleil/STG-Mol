@@ -96,6 +96,9 @@ def _build_model(config, model_path, device):
     """Instantiate a model, load state_dict, return eval-mode model."""
     model_cfg = config.get('model', {}).copy()
     model_cfg['fusion_mode'] = '1D+2D+3D'
+    # If ChemBERTa embeddings are configured, set the input dim to match
+    cb_hidden = config.get('mol2vec', {}).get('embedding_dim', 300)
+    model_cfg['mol2vec_dim'] = cb_hidden
     model = MultiModalFusionNet(model_cfg)
     state = torch.load(model_path, map_location=device)
     if isinstance(state, dict) and 'model_state_dict' in state:
@@ -103,6 +106,34 @@ def _build_model(config, model_path, device):
     model.load_state_dict(state, strict=False)
     model.to(device).eval()
     return model
+
+
+class _ChemBERTaLookup:
+    """Drop-in replacement for Mol2VecFeaturizer that reads pre-computed
+    ChemBERTa embeddings from a pickle. Same .featurize([smi]) interface."""
+
+    def __init__(self, pkl_path):
+        import pickle
+        with open(pkl_path, 'rb') as f:
+            data = pickle.load(f)
+        self.embeddings = data['embeddings']
+        self.hidden_size = data['hidden_size']
+        print(f'📥 Loaded ChemBERTa embeddings ({self.hidden_size}-d) '
+              f'for {len(self.embeddings)} molecules from {pkl_path}')
+
+    def featurize(self, smiles_list):
+        out = np.zeros((len(smiles_list), self.hidden_size), dtype=np.float32)
+        miss = 0
+        for i, s in enumerate(smiles_list):
+            emb = self.embeddings.get(s)
+            if emb is None:
+                miss += 1
+            else:
+                out[i] = emb
+        if miss:
+            print(f'   ⚠ {miss}/{len(smiles_list)} SMILES not in ChemBERTa '
+                  f'pkl (zero-filled — may hurt accuracy)')
+        return out
 
 
 def _featurise(smi, featurizer, conformer_gen, cutoff):
@@ -195,10 +226,19 @@ def main():
 
     # Featurisers (shared across models)
     mol2vec_path = config.get('mol2vec', {}).get('model_path')
-    if not mol2vec_path or not Path(mol2vec_path).exists():
-        mol2vec_path = 'data/mol2vec_model.pkl'
-    print(f'\nLoading Mol2Vec featuriser from {mol2vec_path}...')
-    featurizer = Mol2VecFeaturizer(model_path=mol2vec_path)
+    chemberta_pkl = config.get('mol2vec', {}).get('chemberta_pkl')
+    if chemberta_pkl and Path(chemberta_pkl).exists():
+        print(f'\nLoading ChemBERTa featuriser from {chemberta_pkl}...')
+        featurizer = _ChemBERTaLookup(chemberta_pkl)
+        # Force config to reflect the pretrained embedding dim
+        if 'mol2vec' not in config:
+            config['mol2vec'] = {}
+        config['mol2vec']['embedding_dim'] = featurizer.hidden_size
+    else:
+        if not mol2vec_path or not Path(mol2vec_path).exists():
+            mol2vec_path = 'data/mol2vec_model.pkl'
+        print(f'\nLoading Mol2Vec featuriser from {mol2vec_path}...')
+        featurizer = Mol2VecFeaturizer(model_path=mol2vec_path)
     conformer_gen = ConformerGenerator()
     cutoff = float(config.get('model', {}).get('cutoff', 5.0))
 
