@@ -2145,10 +2145,16 @@ def run_multimodal_experiment(config_path: str):
         mol2vec_val   = _featurize_cb(val_df['smiles'].tolist())
         mol2vec_test  = _featurize_cb(test_df['smiles'].tolist())
 
-        # Ensure encoder_1d uses the right input dim
+        # Ensure encoder_1d uses the right input dim.
+        # Note: line ~2221 reads config['mol2vec']['embedding_dim'] and
+        # writes it to model_config['mol2vec_dim'] — overriding any
+        # config['model']['mol2vec_dim'] set here. So we update BOTH.
         if 'model' not in config:
             config['model'] = {}
         config['model']['mol2vec_dim'] = _hidden_size
+        if 'mol2vec' not in config:
+            config['mol2vec'] = {}
+        config['mol2vec']['embedding_dim'] = _hidden_size
 
     elif any('1D' in mode for mode in fusion_modes):
         if MOL2VEC_AVAILABLE:
