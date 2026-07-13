@@ -109,7 +109,12 @@ def main():
         print(f'  Loading from local directory (no HuggingFace access needed)')
     try:
         tokenizer = AutoTokenizer.from_pretrained(src)
-        model = AutoModel.from_pretrained(src)
+        # Force safetensors format to avoid torch<2.6 vulnerability check
+        try:
+            model = AutoModel.from_pretrained(src, use_safetensors=True)
+        except (TypeError, ValueError):
+            # Older transformers versions don't accept use_safetensors kwarg
+            model = AutoModel.from_pretrained(src)
     except Exception as e:
         print(f'\n❌ Failed to load model: {e}')
         print(f'\nOptions:')
@@ -118,7 +123,8 @@ def main():
         print(f'  3. Manual download: git clone https://hf-mirror.com/'
               f'DeepChem/ChemBERTa-77M-MTR ./chemberta_local/')
         print(f'                     then --local_model_dir ./chemberta_local')
-        print(f'  4. Or: set HF_HUB_OFFLINE=1 env var after first download.')
+        print(f'  4. If pytorch < 2.6 blocks torch.load: pip install --upgrade '
+              f'transformers    (newer versions default to safetensors)')
         sys.exit(1)
     model.to(args.device).eval()
     hidden_size = model.config.hidden_size
