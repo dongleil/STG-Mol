@@ -696,8 +696,25 @@ class LowRankBilinearFusion(nn.Module):
 
 
 class HierarchicalTrimodalFusion(nn.Module):
-    def __init__(self, dim: int, dropout: float = 0.1):
+    """Hierarchical tri-modal fusion (Cross-Attn + Gated + Bilinear + ImportanceNet).
+
+    The `ablate` argument enables component-level ablations for paper Table 5.2.3.
+    Keys (all default False):
+        no_cross_attn      -- disable cross-modal attention (pass modalities through)
+        no_gated           -- replace gated fusion with mean of the two inputs
+        no_bilinear        -- drop the bilinear output branch from `final_concat`
+        no_importance_net  -- fix modality weights to uniform 1/3 each (bypass importance)
+    Turning ON all four flags degrades the module to a plain concat + MLP fusion,
+    which is the natural lower baseline.
+    """
+
+    def __init__(self, dim: int, dropout: float = 0.1, ablate=None):
         super().__init__()
+        ablate = ablate or {}
+        self.no_cross_attn     = bool(ablate.get('no_cross_attn', False))
+        self.no_gated          = bool(ablate.get('no_gated', False))
+        self.no_bilinear       = bool(ablate.get('no_bilinear', False))
+        self.no_importance_net = bool(ablate.get('no_importance_net', False))
 
         self.cross_attn_12 = CrossModalAttention(dim, num_heads=4, dropout=dropout)
         self.cross_attn_13 = CrossModalAttention(dim, num_heads=4, dropout=dropout)
@@ -710,8 +727,10 @@ class HierarchicalTrimodalFusion(nn.Module):
         self.bilinear_final = LowRankBilinearFusion(
             dim, dim * 2, dim, rank=16, dropout=dropout)
 
+        # `final_fusion` input dim depends on whether the bilinear branch is present.
+        concat_in = dim * 4 if not self.no_bilinear else dim * 3
         self.final_fusion = nn.Sequential(
-            nn.Linear(dim * 4, dim * 2),
+            nn.Linear(concat_in, dim * 2),
             nn.LayerNorm(dim * 2),
             nn.ReLU(),
             nn.Dropout(dropout),
@@ -728,31 +747,49 @@ class HierarchicalTrimodalFusion(nn.Module):
 
     def forward(self, x1: torch.Tensor, x2: torch.Tensor,
                 x3: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        x1_12, x2_12 = self.cross_attn_12(x1, x2)
-        x1_13, x3_13 = self.cross_attn_13(x1, x3)
-        x2_23, x3_23 = self.cross_attn_23(x2, x3)
+        # (1) Cross-modal attention -- may be ablated
+        if self.no_cross_attn:
+            x1_enh, x2_enh, x3_enh = x1, x2, x3
+        else:
+            x1_12, x2_12 = self.cross_attn_12(x1, x2)
+            x1_13, x3_13 = self.cross_attn_13(x1, x3)
+            x2_23, x3_23 = self.cross_attn_23(x2, x3)
+            x1_enh = (x1_12 + x1_13) / 2
+            x2_enh = (x2_12 + x2_23) / 2
+            x3_enh = (x3_13 + x3_23) / 2
 
-        x1_enh = (x1_12 + x1_13) / 2
-        x2_enh = (x2_12 + x2_23) / 2
-        x3_enh = (x3_13 + x3_23) / 2
+        # (2) Pairwise gated fusion -- may be ablated to mean of pair
+        if self.no_gated:
+            f_12 = (x1_enh + x2_enh) / 2
+            f_13 = (x1_enh + x3_enh) / 2
+            f_23 = (x2_enh + x3_enh) / 2
+        else:
+            f_12 = self.gate_12(x1_enh, x2_enh)
+            f_13 = self.gate_13(x1_enh, x3_enh)
+            f_23 = self.gate_23(x2_enh, x3_enh)
 
-        f_12 = self.gate_12(x1_enh, x2_enh)
-        f_13 = self.gate_13(x1_enh, x3_enh)
-        f_23 = self.gate_23(x2_enh, x3_enh)
-
-        concat_orig = torch.cat([x1, x2, x3], dim=-1)
-        importance  = self.importance_net(concat_orig)
+        # (3) Importance-net-weighted skip -- may be ablated to uniform 1/3 weighting
+        if self.no_importance_net:
+            batch = x1.shape[0]
+            importance = torch.full((batch, 3), 1.0 / 3.0,
+                                     device=x1.device, dtype=x1.dtype)
+        else:
+            concat_orig = torch.cat([x1, x2, x3], dim=-1)
+            importance  = self.importance_net(concat_orig)
 
         weighted_orig = (importance[:, 0:1] * x1 +
                          importance[:, 1:2] * x2 +
                          importance[:, 2:3] * x3)
 
-        pair_concat  = torch.cat([f_12, f_23], dim=-1)
-        bilinear_out = self.bilinear_final(f_13, pair_concat)
+        # (4) Bilinear branch -- may be ablated (dropped from the concat)
+        if self.no_bilinear:
+            final_concat = torch.cat([f_12, f_13, f_23], dim=-1)
+        else:
+            pair_concat  = torch.cat([f_12, f_23], dim=-1)
+            bilinear_out = self.bilinear_final(f_13, pair_concat)
+            final_concat = torch.cat([f_12, f_13, f_23, bilinear_out], dim=-1)
 
-        final_concat = torch.cat([f_12, f_13, f_23, bilinear_out], dim=-1)
-        fused        = self.final_fusion(final_concat)
-
+        fused = self.final_fusion(final_concat)
         return fused + weighted_orig, importance
 
 
@@ -829,7 +866,17 @@ class MultiModalFusionNet(nn.Module):
             )
 
         if self.fusion_mode == '1D+2D+3D':
-            self.fusion = HierarchicalTrimodalFusion(hidden_dim, dropout)
+            # Fusion-component ablation flags (all default off — full model).
+            # Config example:
+            #   model:
+            #     fusion_ablate:
+            #       no_cross_attn:     false
+            #       no_gated:          false
+            #       no_bilinear:       false
+            #       no_importance_net: false
+            fusion_ablate = config.get('fusion_ablate', {}) or {}
+            self.fusion = HierarchicalTrimodalFusion(
+                hidden_dim, dropout, ablate=fusion_ablate)
         else:
             self.fusion = BimodalFusion(hidden_dim, dropout)
 
