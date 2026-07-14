@@ -1,0 +1,9 @@
+idx,name,smiles,note
+1,Compound_1,O=C1[C@H]2NN=C(C(=O)[C@@]34C[C@@H]5C[C@@H](C[C@@](Br)(C5)C3)C4)[C@H]2C(=O)N1c1cccc(F)c1,Vina -9.628 kcal/mol (paper strongest binder)
+2,Compound_2,Cc1cc(C(=O)Nc2cc(C(F)(F)F)c3c[nH]nc3c2)nc2nc(O)nc(O)c12,Vina -9.492 kcal/mol
+3,Compound_3,CC1(C)O[C@@H]2O[C@H](C(=O)NCc3ccccc3)[C@@H]3OC(C)(C)O[C@H]3[C@@H]2O1,
+4,Compound_4,CC(=O)N1CC[C@H](NC(=O)N[C@@H]2[C@H]3Cc4cc(F)ccc4[C@H]32)c2ccccc21,
+5,Compound_5,Cc1cccc2nc(CCC(=O)N[C@@H]3C[C@H](C(=O)O)[C@H]4C[C@H]43)[nH]c12,
+6,Compound_6,C[C@@H]1Nc2nc(NC(=O)c3ccc[n+](C)c3)nc(O)c2N(C(=O)c2ccc[n+](C)c2)[C@H]1C,
+7,Compound_7,Cc1cc(C(F)(F)F)ccc1S(=O)(=O)Nc1noc(C(C)(C)C)n1,
+8,Compound_8,CC(C)(C)OC(=O)[C@H]1[C@H](c2ccco2)C2(C(=O)NC(=O)NC2=O)[C@@H]2c3ccccc3C=NN21,Vina -9.545 kcal/mol
