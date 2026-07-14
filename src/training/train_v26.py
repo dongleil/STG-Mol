@@ -1948,6 +1948,23 @@ class EnsembleEvaluator:
             torch.save(model.state_dict(),
                        self.exp_dir / "models" / f"model_{fusion_mode.replace('+','_')}_seed{seed}.pt")
 
+            # 【v4.2】Persist per-seed test predictions so downstream metric
+            # recomputation (scripts/recompute_metrics_v42.py) & the fusion
+            # ablation summariser can consume them without re-running inference.
+            pred_dir = self.exp_dir / "predictions"
+            pred_dir.mkdir(parents=True, exist_ok=True)
+            fmode_tag = fusion_mode.replace('+', '_')
+            pd.DataFrame({
+                'label':     np.asarray(test_labels).astype(int),
+                'pred_prob': np.asarray(test_probs).astype(float),
+            }).to_csv(pred_dir / f"test_pred_{fmode_tag}_seed{seed}.csv",
+                       index=False, float_format='%.6f')
+            pd.DataFrame({
+                'label':     np.asarray(val_labels).astype(int),
+                'pred_prob': np.asarray(val_probs).astype(float),
+            }).to_csv(pred_dir / f"val_pred_{fmode_tag}_seed{seed}.csv",
+                       index=False, float_format='%.6f')
+
         # ── 集成：概率平均 ───────────────────────────────────────────────
         print(f"\n{'=' * 70}")
         print(f"🔗 Ensemble: averaging {len(seeds)} models...")
@@ -1961,6 +1978,21 @@ class EnsembleEvaluator:
         ens_test_auc = roc_auc_score(test_labels_ref, ens_test_probs)
         print(f"   Ensemble Test AUC: {ens_test_auc:.4f} "
               f"(+{ens_test_auc - np.mean(single_test_aucs):+.4f} vs mean single)")
+
+        # 【v4.2】Persist ensemble predictions alongside per-seed CSVs.
+        pred_dir = self.exp_dir / "predictions"
+        pred_dir.mkdir(parents=True, exist_ok=True)
+        fmode_tag = fusion_mode.replace('+', '_')
+        pd.DataFrame({
+            'label':     np.asarray(test_labels_ref).astype(int),
+            'pred_prob': np.asarray(ens_test_probs).astype(float),
+        }).to_csv(pred_dir / f"test_pred_{fmode_tag}_ensemble.csv",
+                   index=False, float_format='%.6f')
+        pd.DataFrame({
+            'label':     np.asarray(val_labels_ref).astype(int),
+            'pred_prob': np.asarray(ens_val_probs).astype(float),
+        }).to_csv(pred_dir / f"val_pred_{fmode_tag}_ensemble.csv",
+                   index=False, float_format='%.6f')
 
         # ── 阈值搜索（在集成val概率上）──────────────────────────────────
         thresh_cfg = train_config.get('threshold_search', {})

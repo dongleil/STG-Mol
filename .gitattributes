@@ -1,0 +1,22 @@
+# Ensure shell scripts stay LF even when cloned on Windows (git core.autocrlf).
+# Without this, `set -o pipefail` breaks under Git Bash / WSL / MSYS2 with:
+#     set: pipefail: invalid option name
+*.sh          text eol=lf
+*.bash        text eol=lf
+
+# PowerShell scripts must be CRLF on Windows (PowerShell handles LF too, but
+# CRLF is the platform norm and mixes better with Windows editors).
+*.ps1         text eol=crlf
+
+# YAML / Python / Markdown: normalise to LF (cross-platform safe).
+*.py          text eol=lf
+*.yaml        text eol=lf
+*.yml         text eol=lf
+*.md          text eol=lf
+
+# Binary — never touch.
+*.pt          binary
+*.pkl         binary
+*.pth         binary
+*.png         binary
+*.jpg         binary
