@@ -29,6 +29,7 @@ override the glob with --glob "*.csv".
 """
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -213,6 +214,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--pred_dir', required=True,
                     help='Directory holding per-seed prediction CSVs.')
+    ap.add_argument('--which', choices=['test', 'val'], default='test',
+                    help='Which split to aggregate (default: test). Files whose '
+                         'basename starts with the chosen prefix are selected; '
+                         'ensemble files and cross-split files are ignored.')
+    ap.add_argument('--include_ensemble', action='store_true',
+                    help='Include the ensemble CSV alongside per-seed CSVs. '
+                         'By default only per-seed rows are aggregated, and the '
+                         'ensemble is recomputed as the probability average '
+                         'across seeds to avoid double-counting.')
     ap.add_argument('--glob', default='*.csv',
                     help='Glob pattern for prediction files (default: *.csv).')
     ap.add_argument('--split_name', default='V3-random',
@@ -224,14 +234,24 @@ def main():
     args = ap.parse_args()
 
     pred_dir = Path(args.pred_dir)
-    csvs = sorted(pred_dir.glob(args.glob))
-    csvs = [c for c in csvs if 'pred' in c.name.lower() or 'test' in c.name.lower()]
-    if not csvs:
-        csvs = sorted(pred_dir.glob(args.glob))
-    if not csvs:
-        sys.exit(f'No prediction CSVs found in {pred_dir}')
+    all_csvs = sorted(pred_dir.glob(args.glob))
 
-    print(f'\nFound {len(csvs)} prediction CSVs in {pred_dir}:')
+    # Keep only per-seed CSVs of the requested split (test_ or val_ prefix,
+    # + suffix _seed<digits>). Ensemble files are excluded unless the user
+    # opts in via --include_ensemble.
+    prefix = f'{args.which}_pred'
+    seed_re = re.compile(r'_seed\d+\.csv$', re.IGNORECASE)
+    csvs = [c for c in all_csvs
+            if c.name.lower().startswith(prefix) and seed_re.search(c.name)]
+    if args.include_ensemble:
+        csvs += [c for c in all_csvs
+                 if c.name.lower().startswith(prefix)
+                 and 'ensemble' in c.name.lower()]
+    if not csvs:
+        sys.exit(f'No {args.which} prediction CSVs found in {pred_dir} '
+                 f'(expected names like "{prefix}_...seed42.csv").')
+
+    print(f'\nSelected {len(csvs)} {args.which} prediction CSV(s) in {pred_dir}:')
     for c in csvs:
         print(f'  · {c.name}')
 
