@@ -230,7 +230,7 @@ def build_zh():
     add_para(doc, '**1D 序列表征**：Morgan/ECFP 指纹 [18]、Mol2Vec [16]、ChemBERTa [17]、MolFormer [29]。**2D 图表征**：GCN [19]、GAT [20]、MPNN [23]、D-MPNN [21]、AttentiveFP [22]。**3D 几何表征**：SchNet [24]、DimeNet [25]、SphereNet [26]、EGNN [27]、PaiNN [28]。三种范式互补但均存在信息盲区。')
 
     add_h2(doc, '2.3  多模态分子融合')
-    add_para(doc, '**静态融合方法**：拼接融合、门控融合、双线性池化、MMFuse 等。**对比预训练融合**：MolCLR [31]、Uni-Mol [30]、GEM [32]、KPGT [33]。')
+    add_para(doc, '**静态融合方法**：拼接融合、门控融合、双线性池化等。**对比预训练融合**：MolCLR [31]、Uni-Mol [30]、GEM [32]、KPGT [33]、GROVER [38]。')
     add_note(doc, 'Gap analysis：现有多模态融合方法在小样本靶点上存在模态坍塌、缺乏样本级自适应、无法同时预测活性与成药性等问题。')
 
     add_h2(doc, '2.4  多任务学习在分子性质预测中的应用')
@@ -307,11 +307,11 @@ def build_zh():
     add_para(doc, '**这是本文的核心方法学创新之一**。传统 AI 药物发现工作仅预测活性，忽视了同步评估药物相似性、毒性等成药关键属性，导致高活性但差成药性的候选化合物错误进入后续昂贵实验。本文提出**活性 + 五项 ADMET 二分类联合优化**，让分子表示同时编码**活性相关**与**药物相似性相关**信息。')
 
     add_h3(doc, '3.6.1  五项辅助 ADMET 任务')
-    add_para(doc, '基于 RDKit 药物化学规则生成五项二分类 ADMET 标签（无需外部 API）：')
-    add_para(doc, '**(1) 类药性 Lipinski**：分子量 ≤ 500，LogP ≤ 5，H-bond 供体 ≤ 5，H-bond 受体 ≤ 10；')
-    add_para(doc, '**(2) 药物相似性 QED**：Bickerton QED 药物相似性评分 > 0.5；')
-    add_para(doc, '**(3) PAINS 过滤**：无泛频命中物结构警报；')
-    add_para(doc, '**(4) 合成可及性 SA**：Ertl SA 分数 < 5；')
+    add_para(doc, '基于 RDKit [73] 药物化学规则生成五项二分类 ADMET 标签（无需外部 API）：')
+    add_para(doc, '**(1) 类药性 Lipinski** [68]：分子量 ≤ 500，LogP ≤ 5，H-bond 供体 ≤ 5，H-bond 受体 ≤ 10；')
+    add_para(doc, '**(2) 药物相似性 QED** [69]：Bickerton QED 药物相似性评分 > 0.5；')
+    add_para(doc, '**(3) PAINS 过滤** [70]：无泛频命中物结构警报；')
+    add_para(doc, '**(4) 合成可及性 SA** [71]：Ertl SA 分数 < 5；')
     add_para(doc, '**(5) LogP 平衡性**：Crippen LogP 在 [0, 5] 区间。')
 
     add_h3(doc, '3.6.2  多任务分类头与联合损失')
@@ -329,21 +329,21 @@ def build_zh():
     add_para(doc, '**Stage 0（药性预过滤）**：Lipinski + Veber + PAINS/DILI 规则过滤，CPU 并行。')
     add_para(doc, '**Stage 1（双模态快速粗筛）**：仅使用 1D + 2D 编码器的轻量级模型（Concat 融合），省略 3D 构象生成，单分子推理约 5 ms。')
     add_para(doc, '**Stage 2（三模态精细筛选）**：对 Stage 1 输出使用完整 STG-Mol 三模态多任务模型。')
-    add_para(doc, '**Stage 3（多样性去冗余）**：Butina 层次聚类（Morgan FP，Tanimoto 阈值 0.80）取代表性分子。')
+    add_para(doc, '**Stage 3（多样性去冗余）**：Butina [76] 层次聚类（Morgan FP，Tanimoto 阈值 0.80）取代表性分子。')
     add_para(doc, '实测加速比约 **12×**，端到端召回率损失 < 3%。')
 
     # ============ 4 EXPERIMENTAL SETUP ============
     add_h1(doc, '4  实验设置')
 
     add_h2(doc, '4.1  数据集')
-    add_para(doc, '**NLRP3 数据集**：从 ChEMBL v33、PubChem、BindingDB 检索。以 IC₅₀ = 1 μM 为阈值并结合规则化置信度协议，构建 **2521 分子**数据集（活性 648，非活性 1873，比例约 1:2.9）。**数据决策协议**：所有数据策划标准（活性阈值、诱饵集、5 个已发表 NLRP3 抑制剂 MCC950、CY-09、OLT1177、Oridonin、Tranilast 及其 Tanimoto ≥ 0.7 邻居的显式移除）均在任何模型训练之前**预先确定**，其依据是第 5.4 节的外部 hold-out 设计。测试集指标未参与任何数据版本、编码器组合或超参数的选择；补充材料 S1 中报告的数据版本敏感性分析是事后稳健性检查，而非模型选择流程。')
-    add_para(doc, '**划分协议**：在同一策划数据集上，我们采用两种互补划分。**(i) Bemis–Murcko scaffold split（V3-scaffold，主协议）**——按 Bemis–Murcko 通用骨架对分子分组，8:1:1 划分且任一骨架不跨集合出现，得到 train 2076 / val 252 / test 193（54 活性、139 非活性；活性占比 27.98%；EF 理论上限 N/P = 193/54 ≈ 3.574）。**(ii) Random split（V3-random，参考协议）**——同 8:1:1 比例，按活性标签分层随机划分，得到 train 2016 / val 253 / test 252（67 活性、185 非活性；活性占比 26.59%；EF 理论上限 N/P = 252/67 ≈ 3.7612）。**主协议 scaffold split 作为 headline 评估；random split 并列报告以量化骨架重叠对指标的贡献**。**ADMET 辅助标签**通过 RDKit 规则生成五项二分类标签（Lipinski/QED/PAINS/SA/LogP moderation）。')
+    add_para(doc, '**NLRP3 数据集**：从 ChEMBL v33 [64]、PubChem [65]、BindingDB [66] 检索。以 IC₅₀ = 1 μM 为阈值并结合规则化置信度协议，构建 **2521 分子**数据集（活性 648，非活性 1873，比例约 1:2.9）。**数据决策协议**：所有数据策划标准（活性阈值、诱饵集 DUD-E [52]、5 个已发表 NLRP3 抑制剂 MCC950、CY-09、OLT1177、Oridonin、Tranilast 及其 Tanimoto ≥ 0.7 邻居的显式移除）均在任何模型训练之前**预先确定**，其依据是第 5.4 节的外部 hold-out 设计。测试集指标未参与任何数据版本、编码器组合或超参数的选择；补充材料 S1 中报告的数据版本敏感性分析是事后稳健性检查，而非模型选择流程。')
+    add_para(doc, '**划分协议**：在同一策划数据集上，我们采用两种互补划分。**(i) Bemis–Murcko scaffold split（V3-scaffold，主协议）**——按 Bemis–Murcko 通用骨架对分子分组，8:1:1 划分且任一骨架不跨集合出现，得到 train 2076 / val 252 / test 193（54 活性、139 非活性；活性占比 27.98%；EF 理论上限 N/P = 193/54 ≈ 3.574）。**(ii) Random split（V3-random，参考协议）**——同 8:1:1 比例，按活性标签分层随机划分，得到 train 2016 / val 253 / test 252（67 活性、185 非活性；活性占比 26.59%；EF 理论上限 N/P = 252/67 ≈ 3.7612）。**主协议 scaffold split 作为 headline 评估；random split 并列报告以量化骨架重叠对指标的贡献**。**ADMET 辅助标签**通过 RDKit [73] 规则生成五项二分类标签（Lipinski [68] / QED [69] / PAINS [70] / SA [71] / LogP moderation）。')
 
     add_h2(doc, '4.2  实现细节')
     add_para(doc, '**编码器**：1D Mol2Vec（embedding_dim=300, radius=1，投影至 112 维）；2D D-MPNN（T=3，隐藏 112 维，dropout=0.54）；3D SphereNet（T=3，num_radial=6，num_spherical=7，cutoff=8.0 Å，dropout=0.3）。')
     add_para(doc, '**融合模块**：分层三模态融合（Cross-Attention + Gated + Bilinear + Importance Network），融合维度 112。')
     add_para(doc, '**多任务分类头**：主任务 2 维，辅助 ADMET 5 头 × 2 维。')
-    add_para(doc, '**训练**：AdamW 优化器（weight_decay=0.015），OneCycleLR 调度（peak_lr=3×10⁻⁴，pct_start=0.15，cos 退火）；分支差异化学习率倍率 encoder_1d=0.25, encoder_2d=0.8, encoder_3d=0.8, fusion=1.5, classifier=1.0；批大小 128，最多 300 epoch，早停 patience=100。')
+    add_para(doc, '**训练**：AdamW 优化器（weight_decay=0.015），OneCycleLR [78] 调度（peak_lr=3×10⁻⁴，pct_start=0.15，cos 退火）；分支差异化学习率倍率 encoder_1d=0.25, encoder_2d=0.8, encoder_3d=0.8, fusion=1.5, classifier=1.0；批大小 128，最多 300 epoch，早停 patience=100。')
     add_para(doc, '**损失**：Focal Loss（γ=1.5，label_smoothing=0.05，class_weight=balanced，max_pos_weight=2.5）+ 多样性正则化（λ_div=0.15）+ 多任务辅助损失（λ_admet=0.2）。')
     add_para(doc, '**硬件与复现**：NVIDIA RTX 4090 24GB GPU；5 个随机种子 {42, 123, 2024, 3407, 7} 独立训练，报告个体结果与集成（5 模型平均）结果。')
 
@@ -357,7 +357,7 @@ def build_zh():
     add_para(doc, '选取覆盖三类研究路线的基线方法进行系统对比。')
     add_para(doc, '第一类为**传统 QSAR 方法**，以 Morgan 圆形指纹（ECFP4）结合 SVM、RF、XGBoost 三种经典机器学习分类器。')
     add_para(doc, '第二类为**单模态深度学习方法**，包括 ChemBERTa [17]、AttentiveFP [22]、D-MPNN [21]、SchNet [24]。')
-    add_para(doc, '第三类为**多模态或大规模预训练方法**，涵盖 MolCLR [31]、Uni-Mol [30]、GEM [32]、MMFuse。')
+    add_para(doc, '第三类为**多模态或大规模预训练方法**，涵盖 MolCLR [31]、Uni-Mol [30]、GEM [32]、GROVER [38]。')
     add_para(doc, '所有深度学习基线使用作者提供的官方实现或预训练权重进行训练/微调；传统 QSAR 基线采用 scikit-learn 默认超参数并通过验证集调优。')
 
     # ============ 5 RESULTS (skeleton) ============
@@ -378,7 +378,7 @@ def build_zh():
         ['多模态/预训练', 'MolCLR', '___', '___', '___', '___', '___'],
         ['', 'Uni-Mol', '___', '___', '___', '___', '___'],
         ['', 'GEM', '___', '___', '___', '___', '___'],
-        ['', 'MMFuse', '___', '___', '___', '___', '___'],
+        ['', 'GROVER', '___', '___', '___', '___', '___'],
         ['**本文方法（scaffold, 主协议）**', '**STG-Mol** (5-seed mean)', '**0.9167**', '___', '___', '___', '___'],
     ]
     add_table(doc, header, rows)
@@ -491,12 +491,12 @@ def build_zh():
 
     add_para(doc, '**诚实解读**：我们将 2/5 的外部召回率视为**基于当前公开 NLRP3 语料训练的任何单靶点 QSAR 模型的应用域固有限制**，而非 STG-Mol 架构本身的缺陷。公开 NLRP3 SAR 数据的 80% 以上来自少数医学化学项目，且以 diarylsulfonylurea 类（Inflazome / Novartis / MCC950 类似物）为主导；β-磺酰腈（OLT1177）、肉桂酰胺（Tranilast）、萜类天然产物（Oridonin）各仅有少量代表分子。因此**任何纯数据驱动的模型**——无论架构如何——都会对训练覆盖之外的骨架给出低置信度。前瞻性召回此类分子需要更丰富的训练数据或针对 OOD 骨架的正交搜索策略。')
 
-    add_para(doc, '**部署建议——AD-gated 筛选方案**。据此，我们建议将 STG-Mol 部署为**AD 内筛选器**，并配合互补的 OOD 通道。具体地，在第 5.5 节的大规模筛选流程中我们：(i) 对每个库分子计算其到训练集的最近邻 Tanimoto；(ii) 将 AD 内分子（Tanimoto ≥ 0.4）交由 STG-Mol 分类器排序；(iii) 对深度 OOD 分子（Tanimoto < 0.4）平行执行针对 5 个外部抑制剂的配体相似度搜索并结合药效团过滤。这一 AD-gated 协议把朴素读者眼中的"3/5 漏检"转化为**透明的、结构化的部署边界**：在 AD 内，STG-Mol 的高置信预测值得信赖；在 AD 外，框架拒绝给出高置信度并转向正交证据。我们公开报告召回率与部署方案，而非掩盖 OOD 漏检。')
+    add_para(doc, '**部署建议——AD-gated 筛选方案**。据此，我们建议将 STG-Mol 部署为**AD 内筛选器**，并配合互补的 OOD 通道。具体地，前瞻性筛选流程应：(i) 对每个库分子计算其到训练集的最近邻 Tanimoto；(ii) 将 AD 内分子（Tanimoto ≥ 0.4）交由 STG-Mol 分类器排序；(iii) 对深度 OOD 分子（Tanimoto < 0.4）平行执行针对 5 个外部抑制剂的配体相似度搜索并结合药效团过滤。这样的 AD-gated 协议将把朴素读者眼中的"3/5 漏检"转化为**透明的、结构化的部署边界**：在 AD 内，STG-Mol 的高置信预测值得信赖；在 AD 外，框架拒绝给出高置信度并转向正交证据。**适用范围说明**：第 5.5 节所报告的大规模筛选先于本建议完成，未显式采用 AD 门控——其识别的 8 个候选（表 5.7）因而均为 deep OOD（平均 Tanimoto 0.251，全部 < 0.4）；其 5.6.1–5.6.5 节的计算验证应与本 AD 警示同读，而非视为"AD 内筛选性能"的展示。将 AD 门控加入级联流程与前瞻性湿实验验证已列入下一次迭代（第 6.5 节）。')
 
     add_para(doc, '**敏感性分析**：将操作阈值降至 T = 0.35 可召回 Tranilast (prob 0.357)，使外部召回率提升至 3/5，代价是内部测试集精度下降约 4 个百分点。OLT1177 与 Oridonin 在任何保留可用精度的操作阈值下均无法召回，符合其深度 OOD 状态。完整的阈值—召回曲线见补充材料 S5。')
 
     add_h2(doc, '5.5  大规模虚拟筛选实证')
-    add_para(doc, '将 STG-Mol 双精度级联筛选架构应用于 ZINC 数据库 **880 万分子**（Drug-like subset）。经过 Stage 0 规则过滤（Lipinski + Veber + PAINS）、Stage 1 (1D+2D) 快速粗筛、Stage 2 (1D+2D+3D) 完整精筛，以及基于 Butina 聚类的多样性去冗余，最终获得 **142 个代表性候选分子**。经过 AutoDock Vina 半柔性对接（受体：NLRP3 NACHT 结构域；对接盒中心：186.818, 198.697, 127.866；盒大小 25×25×25 Å；exhaustiveness=16），设定结合能阈值 ≤ -8.4 kcal/mol 并结合 ADMET 综合评分加权排序，优选出 **8 个候选化合物** 进入多层次计算验证。')
+    add_para(doc, '将 STG-Mol 双精度级联筛选架构应用于 ZINC [63] 数据库 **880 万分子**（Drug-like subset）。经过 Stage 0 规则过滤（Lipinski [68] + Veber + PAINS [70]）、Stage 1 (1D+2D) 快速粗筛、Stage 2 (1D+2D+3D) 完整精筛，以及基于 Butina [76] 聚类的多样性去冗余，最终获得 **142 个代表性候选分子**。经过 AutoDock Vina [56] 半柔性对接（受体：NLRP3 NACHT 结构域；对接盒中心：186.818, 198.697, 127.866；盒大小 25×25×25 Å；exhaustiveness=16），设定结合能阈值 ≤ -8.4 kcal/mol 并结合 ADMET 综合评分加权排序，优选出 **8 个候选化合物** 进入多层次计算验证。')
 
     add_h2(doc, '5.6  候选化合物多层次计算验证')
 
@@ -538,13 +538,13 @@ def build_zh():
     add_para(doc, '**分析要点**：(i) **跨评估协议的 ranking 一致性**——7/8 (87.5%) 化合物被 V3-random 5-seed 集成模型独立确认为 predicted active，且三个最强 Vina binders (Compound 1/2/8, ΔG < -9.4 kcal/mol) **全部通过阈值**，证明候选 ranking 在不同划分协议下保持稳定。(ii) **结构新颖性与 OOD 警示**：所有 8 个候选平均 Tanimoto = 0.251，均 < 0.4，位于训练集应用域之外（deep OOD）。这是第 5.5 节级联筛选流程未显式采用 AD 门控（AD-gate）的直接后果（详见第 5.4 节部署建议及其"适用范围说明"）；其 5.6.3–5.6.5 节的计算验证是主要支撑，而非仅凭活性概率。(iii) **Compound 5 弃权** (prob = 0.407, 5-seed range 0.074–0.816) 体现了 5.4 节所述的 AD-aware 置信度行为：模型对该化合物表达显著不确定性，未给出高置信正判定。我们在获得正交证据前将其列为湿实验优先级较低的目标。**警示**：由于 8 个候选全部处于 deep OOD，V3-random 概率本身**不构成活性的充分证据**；此处一致性应视为对 ranking 的内部稳健性检查，而非活性的验证。前瞻性湿实验确认仍必需，已列入未来工作（6.5 节）。')
 
     add_h3(doc, '5.6.3  GROMACS 分子动力学模拟')
-    add_note(doc, '100 ns 全原子 MD（AMBER99SB-ILDN + GAFF2；TIP3P 水；0.15 M NaCl；NPT, 300 K, 1 atm）——RMSD/结合能稳定性数据待补充。所有候选 ligand RMSD < 3.0 Å。')
+    add_note(doc, '100 ns 全原子 MD 采用 GROMACS [57]（AMBER99SB-ILDN + GAFF2；TIP3P 水；0.15 M NaCl；NPT, 300 K, 1 atm）——RMSD/结合能稳定性数据待补充。所有候选 ligand RMSD < 3.0 Å。')
 
     add_h3(doc, '5.6.4  MMPBSA 结合自由能')
-    add_note(doc, 'Compound 2 (-33.22 kcal/mol) 与 Compound 1 (-30.78 kcal/mol) 呈现最强热力学结合；Compound 4 (-24.67 kcal/mol) 呈现疏水驱动结合特征——完整表待补充。')
+    add_note(doc, 'MMPBSA 结合自由能采用 Genheden & Ryde [58] 方法计算。Compound 2 (-33.22 kcal/mol) 与 Compound 1 (-30.78 kcal/mol) 呈现最强热力学结合；Compound 4 (-24.67 kcal/mol) 呈现疏水驱动结合特征——完整表待补充。')
 
     add_h3(doc, '5.6.5  ADMET 药物性质预测')
-    add_note(doc, 'V3-random Multi-Task 头输出的 5 项 ADMET 预测（Lipinski / QED / PAINS / SA / LogP）与外部 ADMET 工具（SwissADME、admetSAR）对比数据待补充。所有 8 化合物 hERG < 0.3，DILI 预测偏高（≥ 0.808）——直接呼应 MCC950 因肝毒性终止 II 期临床的教训，提示后续结构优化应优先降低 DILI 风险。')
+    add_note(doc, 'V3-random Multi-Task 头输出的 5 项 ADMET 预测（Lipinski / QED / PAINS / SA / LogP）与外部 ADMET 工具（SwissADME [72]、admetSAR）对比数据待补充。所有 8 化合物 hERG < 0.3，DILI 预测偏高（≥ 0.808）——直接呼应 MCC950 因肝毒性终止 II 期临床的教训，提示后续结构优化应优先降低 DILI 风险。')
 
     # ============ 6 DISCUSSION (skeleton) ============
     add_h1(doc, '6  讨论')

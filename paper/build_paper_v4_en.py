@@ -138,11 +138,11 @@ def build_en():
     add_para(doc, '**This is a core methodological contribution of the paper.** Conventional AI drug discovery predicts activity alone, overlooking simultaneous drug-likeness and toxicity assessment. This can allow high-activity but poorly druggable candidates into costly downstream experiments. We propose **joint optimisation of activity + five ADMET binary classifications** to force the molecular representation to encode both activity-related and drug-likeness-related information.')
 
     add_h3(doc, '3.6.1  Five Auxiliary ADMET Tasks')
-    add_para(doc, 'We generate five binary ADMET labels via RDKit medicinal-chemistry rules (no external API required):')
-    add_para(doc, '**(1) Lipinski compliance**: MW ≤ 500, LogP ≤ 5, HBD ≤ 5, HBA ≤ 10.')
-    add_para(doc, '**(2) QED drug-likeness**: Bickerton QED > 0.5.')
-    add_para(doc, '**(3) PAINS filter**: no pan-assay interference alert.')
-    add_para(doc, '**(4) Synthetic accessibility**: Ertl SA score < 5.')
+    add_para(doc, 'We generate five binary ADMET labels via RDKit [73] medicinal-chemistry rules (no external API required):')
+    add_para(doc, '**(1) Lipinski compliance** [68]: MW ≤ 500, LogP ≤ 5, HBD ≤ 5, HBA ≤ 10.')
+    add_para(doc, '**(2) QED drug-likeness** [69]: Bickerton QED > 0.5.')
+    add_para(doc, '**(3) PAINS filter** [70]: no pan-assay interference alert.')
+    add_para(doc, '**(4) Synthetic accessibility** [71]: Ertl SA score < 5.')
     add_para(doc, '**(5) LogP moderation**: Crippen LogP in [0, 5].')
 
     add_h3(doc, '3.6.2  Multi-Task Head and Joint Loss')
@@ -157,24 +157,24 @@ def build_en():
 
     add_h2(doc, '3.7  Dual-Precision Cascaded Virtual Screening Architecture')
     add_para(doc, 'Applying full STG-Mol to 8.8 M ZINC compounds is infeasible—the 3D branch\'s conformer generation costs 80–150 ms per molecule. We therefore adopt a **dual-precision cascaded architecture**:')
-    add_para(doc, '**Stage 0 (Drug-likeness pre-filtering)**: Lipinski + Veber + PAINS/DILI rules, CPU-parallel.')
+    add_para(doc, '**Stage 0 (Drug-likeness pre-filtering)**: Lipinski [68] + Veber + PAINS/DILI rules, CPU-parallel.')
     add_para(doc, '**Stage 1 (Lightweight bi-modal coarse screening)**: 1D + 2D encoders only (Concat fusion), no conformer generation, ~5 ms per molecule.')
     add_para(doc, '**Stage 2 (Full tri-modal multi-task fine screening)**: full STG-Mol on Stage-1 output.')
-    add_para(doc, '**Stage 3 (Diversity clustering)**: Butina clustering with Morgan FP, Tanimoto ≤ 0.80.')
+    add_para(doc, '**Stage 3 (Diversity clustering)**: Butina [76] clustering with Morgan FP, Tanimoto ≤ 0.80.')
     add_para(doc, 'Observed speed-up ≈ **12×**, with end-to-end recall loss < 3%.')
 
     # ============ 4 EXPERIMENTAL SETUP ============
     add_h1(doc, '4  Experimental Setup')
 
     add_h2(doc, '4.1  Datasets')
-    add_para(doc, '**NLRP3 dataset**: retrieved from ChEMBL v33, PubChem, and BindingDB. Using an IC₅₀ = 1 μM threshold with a rule-based confidence protocol and DUD-E [52] decoy augmentation, we constructed a **2,521-molecule** dataset (648 actives, 1,873 inactives, ratio ~1:2.9). **Data-decision protocol.** Data curation criteria (activity threshold, decoy set, and the explicit removal of five published NLRP3 inhibitors — MCC950, CY-09, OLT1177, Oridonin, Tranilast — together with all their Tanimoto ≥ 0.7 neighbours) were **fixed a priori** before any model training, based on the external-hold-out design of Section 5.4. No test-set metric was ever used to select the dataset version, encoder combination, or hyperparameters; the version-selection ablation reported in Supplementary S1 is a post-hoc sensitivity analysis, not a model-selection loop.')
+    add_para(doc, '**NLRP3 dataset**: retrieved from ChEMBL v33 [64], PubChem [65], and BindingDB [66]. Using an IC₅₀ = 1 μM threshold with a rule-based confidence protocol and DUD-E [52] decoy augmentation, we constructed a **2,521-molecule** dataset (648 actives, 1,873 inactives, ratio ~1:2.9). **Data-decision protocol.** Data curation criteria (activity threshold, decoy set, and the explicit removal of five published NLRP3 inhibitors — MCC950, CY-09, OLT1177, Oridonin, Tranilast — together with all their Tanimoto ≥ 0.7 neighbours) were **fixed a priori** before any model training, based on the external-hold-out design of Section 5.4. No test-set metric was ever used to select the dataset version, encoder combination, or hyperparameters; the version-selection ablation reported in Supplementary S1 is a post-hoc sensitivity analysis, not a model-selection loop.')
     add_para(doc, '**Splitting protocols.** We adopt two complementary splits on this same curated dataset. **(i) Bemis–Murcko scaffold split (V3-scaffold, primary)**: molecules are grouped by generic Bemis–Murcko scaffolds and split 8:1:1 so that no scaffold appears in more than one of {train, val, test}, yielding train 2,076 / val 252 / test 193 (54 actives, 139 inactives; active prevalence 27.98%; EF theoretical upper bound N/P = 193/54 ≈ 3.574). **(ii) Random split (V3-random, reference)**: identical 8:1:1 ratio, stratified by activity label, yielding train 2,016 / val 253 / test 252 (67 actives, 185 inactives; active prevalence 26.59%; EF theoretical upper bound N/P = 252/67 ≈ 3.7612). The scaffold split is our headline evaluation; the random split is reported side-by-side to isolate the contribution of scaffold overlap to reported metrics. **ADMET auxiliary labels** were generated via RDKit medicinal-chemistry rules (Lipinski RO5, QED, PAINS, SA, LogP moderation).')
 
     add_h2(doc, '4.2  Implementation Details')
     add_para(doc, '**Encoders**: 1D Mol2Vec (embedding_dim=300, radius=1, projected to 112D); 2D D-MPNN (T=3, hidden 112, dropout 0.54); 3D SphereNet (T=3, num_radial=6, num_spherical=7, cutoff 8 Å, dropout 0.3).')
     add_para(doc, '**Fusion**: hierarchical tri-modal fusion (Cross-Attention + Gated + Bilinear + Importance Network), fusion dimension 112.')
     add_para(doc, '**Multi-task heads**: primary head 2 dims; ADMET head 5 tasks × 2 classes.')
-    add_para(doc, '**Training**: AdamW (weight_decay=0.015), OneCycleLR (peak_lr=3×10⁻⁴, pct_start=0.15, cosine annealing); branch learning-rate scales encoder_1d=0.25, encoder_2d=0.8, encoder_3d=0.8, fusion=1.5, classifier=1.0; batch size 128, up to 300 epochs, early-stopping patience 100.')
+    add_para(doc, '**Training**: AdamW (weight_decay=0.015), OneCycleLR [78] (peak_lr=3×10⁻⁴, pct_start=0.15, cosine annealing); branch learning-rate scales encoder_1d=0.25, encoder_2d=0.8, encoder_3d=0.8, fusion=1.5, classifier=1.0; batch size 128, up to 300 epochs, early-stopping patience 100.')
     add_para(doc, '**Loss**: Focal Loss (γ=1.5, label_smoothing=0.05, class_weight=balanced, max_pos_weight=2.5) + Diversity regularisation (λ_div=0.15) + Multi-task auxiliary loss (λ_admet=0.2).')
     add_para(doc, '**Hardware & reproducibility**: NVIDIA RTX 4090 24 GB GPU; five random seeds {42, 123, 2024, 3407, 7} trained independently, reporting individual results, mean±std, and ensemble (5-model average).')
 
@@ -188,7 +188,7 @@ def build_en():
     add_para(doc, 'We compare against three categories of baselines.')
     add_para(doc, 'Category 1: **Classical QSAR methods** — Morgan fingerprints (ECFP4) with SVM, RF, or XGBoost classifiers.')
     add_para(doc, 'Category 2: **Single-modality deep learning methods** — ChemBERTa [17], AttentiveFP [22], D-MPNN [21], SchNet [24].')
-    add_para(doc, 'Category 3: **Multi-modal / large-scale pretraining methods** — MolCLR [31], Uni-Mol [30], GEM [32], MMFuse.')
+    add_para(doc, 'Category 3: **Multi-modal / large-scale pretraining methods** — MolCLR [31], Uni-Mol [30], GEM [32], GROVER [38].')
     add_para(doc, 'All deep-learning baselines are trained or fine-tuned using authors\' official implementations or pretrained weights; classical QSAR baselines use scikit-learn defaults with validation-set-tuned hyperparameters.')
 
     # ============ 5 RESULTS ============
@@ -209,7 +209,7 @@ def build_en():
         ['Multi-modal / Pretrain', 'MolCLR', '___', '___', '___', '___', '___'],
         ['', 'Uni-Mol', '___', '___', '___', '___', '___'],
         ['', 'GEM', '___', '___', '___', '___', '___'],
-        ['', 'MMFuse', '___', '___', '___', '___', '___'],
+        ['', 'GROVER', '___', '___', '___', '___', '___'],
         ['**Ours (scaffold, primary)**', '**STG-Mol** (5-seed mean)', '**0.9167**', '___', '___', '___', '___'],
     ]
     add_table(doc, header, rows)
@@ -308,12 +308,12 @@ def build_en():
 
     add_para(doc, '**Honest interpretation.** We regard the 2/5 external recall as an **applicability-domain limitation of any single-target QSAR model trained on the current public NLRP3 corpus**, not a general property of the STG-Mol architecture. Over 80% of publicly available NLRP3 SAR data derives from a small number of medicinal-chemistry campaigns dominated by the diarylsulfonylurea class (Inflazome / Novartis / academic MCC950 analogues); β-sulfonyl nitriles (OLT1177), cinnamamides (Tranilast), and terpenoid natural products (Oridonin) are represented by only a handful of molecules each. As a result, a purely data-driven model — regardless of architecture — will assign low confidence to scaffolds outside this training footprint. Prospective recovery of such compounds requires either richer training data or an orthogonal search strategy for OOD chemotypes.')
 
-    add_para(doc, '**Deployment recommendation — AD-gated screening.** We therefore recommend deploying STG-Mol as an **in-AD screener** paired with a complementary OOD channel. Concretely, a prospective screening protocol should (i) compute the nearest-neighbour Tanimoto to training for each library compound, (ii) route in-AD compounds (Tanimoto ≥ 0.4) through STG-Mol\'s classifier for ranking, and (iii) subject deep-OOD compounds (Tanimoto < 0.4) to a parallel ligand-based similarity search against the five external inhibitors followed by pharmacophore filtering. Such an AD-gated protocol converts what a naïve reader might view as a "3/5 miss" into a **transparent, structured deployment envelope**: within the AD, STG-Mol\'s high-confidence predictions can be trusted; outside the AD, the framework declines to make confident calls and defers to orthogonal evidence. **Scope note.** The large-scale screening reported in Section 5.5 predates this recommendation and was carried out without an explicit AD-gate — the eight candidates it surfaces (Table 5.7) are consequently all deep OOD (mean Tanimoto 0.251, all < 0.4); their computational validation in Sections 5.6.1–5.6.5 must therefore be read alongside the AD caveat rather than as a demonstration of in-AD screening performance. Adding the AD-gate to the cascaded pipeline is planned for the next iteration together with prospective wet-lab validation (Section 6.5).')
+    add_para(doc, '**Deployment recommendation — AD-gated screening.** We therefore recommend deploying STG-Mol as an **in-AD screener** paired with a complementary OOD channel. Concretely, a prospective screening protocol should (i) compute the nearest-neighbour Tanimoto to training for each library compound, (ii) route in-AD compounds (Tanimoto ≥ 0.4) through STG-Mol\'s classifier for ranking, and (iii) subject deep-OOD compounds (Tanimoto < 0.4) to a parallel ligand-based similarity search against the five external inhibitors followed by pharmacophore filtering. Such an AD-gated protocol would convert what a naïve reader might view as a "3/5 miss" into a **transparent, structured deployment envelope**: within the AD, STG-Mol\'s high-confidence predictions can be trusted; outside the AD, the framework declines to make confident calls and defers to orthogonal evidence. **Scope note.** The large-scale screening reported in Section 5.5 predates this recommendation and was carried out without an explicit AD-gate — the eight candidates it surfaces (Table 5.7) are consequently all deep OOD (mean Tanimoto 0.251, all < 0.4); their computational validation in Sections 5.6.1–5.6.5 must therefore be read alongside the AD caveat rather than as a demonstration of in-AD screening performance. Adding the AD-gate to the cascaded pipeline is planned for the next iteration together with prospective wet-lab validation (Section 6.5).')
 
     add_para(doc, '**Sensitivity analysis.** Lowering the operating threshold to T = 0.35 recovers Tranilast (prob 0.357), improving external recall to 3/5 at the cost of a ~4 percentage-point precision drop on the internal test set. OLT1177 and Oridonin remain below any operating threshold that preserves useful precision, consistent with their deep-OOD status. Full threshold–recall curves are provided in Supplementary S5.')
 
     add_h2(doc, '5.5  Large-Scale Virtual Screening')
-    add_para(doc, 'The dual-precision cascaded screening architecture is applied to **8.8 million compounds** from the ZINC drug-like subset. After Stage-0 rule-based pre-filter (Lipinski + Veber + PAINS), Stage-1 (1D+2D) coarse screening, Stage-2 (1D+2D+3D) fine screening, and Butina clustering for diversity, we obtain **142 representative candidates**. Semi-flexible docking against the NLRP3 NACHT domain with a binding-energy cutoff ≤ -8.4 kcal/mol combined with ADMET-weighted ranking yields the final **8 prioritised candidates** for multi-level validation.')
+    add_para(doc, 'The dual-precision cascaded screening architecture is applied to **8.8 million compounds** from the ZINC [63] drug-like subset. After Stage-0 rule-based pre-filter (Lipinski [68] + Veber + PAINS [70]), Stage-1 (1D+2D) coarse screening, Stage-2 (1D+2D+3D) fine screening, and Butina [76] clustering for diversity, we obtain **142 representative candidates**. Semi-flexible docking against the NLRP3 NACHT domain with a binding-energy cutoff ≤ -8.4 kcal/mol combined with ADMET-weighted ranking yields the final **8 prioritised candidates** for multi-level validation.')
 
     add_h2(doc, '5.6  Multi-Level Computational Validation of Candidates')
 
@@ -355,13 +355,13 @@ def build_en():
     add_para(doc, '**Analysis.** (i) **Ranking consistency across evaluation protocols**: 7/8 (87.5%) candidates are independently confirmed as predicted active by the V3-random 5-seed ensemble, and the three strongest Vina binders (Compounds 1, 2, 8; ΔG < -9.4 kcal/mol) **all pass the threshold** — evidencing that the candidate ranking is stable under alternative splitting protocols. (ii) **Structural novelty and OOD caveat**: mean Tanimoto = 0.251, all < 0.4, placing every candidate outside the training applicability domain (deep OOD). This is a direct consequence of Section 5.5\'s cascaded protocol not applying an explicit AD-gate at ranking time (see Section 5.4 deployment recommendation and its scope note); the computational validation in Sections 5.6.3–5.6.5 is the primary support here, not the raw activity probability alone. (iii) **Compound 5 abstention** (prob = 0.407, 5-seed range 0.074–0.816) exemplifies the AD-aware confidence behaviour described in Section 5.4: the model expresses substantial uncertainty on this compound and does not commit to a confident positive call. We flag this as a lower-priority target for wet-lab prioritisation until orthogonal evidence is obtained. **Caveat.** Because all eight candidates are deep OOD, the V3-random probabilities alone are not sufficient evidence of activity; the consistency shown here should be read as an internal robustness check on the ranking, not as a validation of biological activity. Prospective wet-lab confirmation remains essential and is planned as future work (Section 6.5).')
 
     add_h3(doc, '5.6.3  GROMACS Molecular Dynamics Simulation')
-    add_note(doc, '100 ns all-atom MD (AMBER99SB-ILDN + GAFF2; TIP3P water; 0.15 M NaCl; NPT at 300 K, 1 atm) — RMSD/stability data pending. All candidates exhibit ligand RMSD < 3.0 Å.')
+    add_note(doc, '100 ns all-atom MD using GROMACS [57] (AMBER99SB-ILDN + GAFF2; TIP3P water; 0.15 M NaCl; NPT at 300 K, 1 atm) — RMSD/stability data pending. All candidates exhibit ligand RMSD < 3.0 Å.')
 
     add_h3(doc, '5.6.4  MMPBSA Binding Free Energy')
-    add_note(doc, 'Compound 2 (-33.22 kcal/mol) and Compound 1 (-30.78 kcal/mol) show the strongest thermodynamic binding; Compound 4 (-24.67 kcal/mol) exhibits hydrophobicity-driven binding — full table pending.')
+    add_note(doc, 'MMPBSA binding free energies computed following Genheden & Ryde [58]. Compound 2 (-33.22 kcal/mol) and Compound 1 (-30.78 kcal/mol) show the strongest thermodynamic binding; Compound 4 (-24.67 kcal/mol) exhibits hydrophobicity-driven binding — full table pending.')
 
     add_h3(doc, '5.6.5  ADMET Drug-Likeness Prediction')
-    add_note(doc, 'V3-random multi-task ADMET head outputs (Lipinski / QED / PAINS / SA / LogP) benchmarked against SwissADME / admetSAR — full table pending. All 8 candidates have hERG < 0.3; DILI predictions are elevated (≥ 0.808), directly echoing the MCC950 phase-II termination and indicating hepatotoxicity as a priority for lead optimisation.')
+    add_note(doc, 'V3-random multi-task ADMET head outputs (Lipinski / QED / PAINS / SA / LogP) benchmarked against SwissADME [72] / admetSAR — full table pending. All 8 candidates have hERG < 0.3; DILI predictions are elevated (≥ 0.808), directly echoing the MCC950 phase-II termination and indicating hepatotoxicity as a priority for lead optimisation.')
 
     # ============ 6 DISCUSSION ============
     add_h1(doc, '6  Discussion')

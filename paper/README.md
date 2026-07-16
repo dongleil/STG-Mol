@@ -13,15 +13,20 @@ can reproduce every figure and number by running one script.
 | `build_paper_v4_en.py`     | Builds the **English** manuscript v4.2 → `STG-Mol_Paper_v4.2_English.docx` |
 | `build_paper_v3.py`        | Shared `python-docx` helpers (`add_h1`, `add_table`, `add_formula`, …) inherited by v4.x builders |
 | `references_v4.py`         | 78 canonical references — a Python list consumed by both builders |
+| `graphical_abstract.py`    | Renders the Elsevier-format Graphical Abstract (SVG + 300 dpi PNG) |
+| `COVER_LETTER_v4.2.txt`    | Cover letter for CBM submission (v4.2 numbers + honest AD framing) |
+| `HIGHLIGHTS_v4.2.txt`      | Elsevier highlights (5 bullets, each ≤ 85 characters) |
 | `STG-Mol_Paper_v4.2_English.docx` | Latest built English docx (regenerable) |
 | `STG-Mol_论文_v4.2_中文.docx`     | Latest built Chinese docx (regenerable) |
+| `graphical_abstract.svg` / `graphical_abstract.png` | Latest built GA (regenerable) |
 
 ## Build
 
 ```bash
-pip install python-docx        # only runtime dependency
-python paper/build_paper_v4_en.py   # → STG-Mol_Paper_v4.2_English.docx
-python paper/build_paper_v4.py      # → STG-Mol_论文_v4.2_中文.docx
+pip install python-docx matplotlib   # only runtime dependencies
+python paper/build_paper_v4_en.py    # → STG-Mol_Paper_v4.2_English.docx
+python paper/build_paper_v4.py       # → STG-Mol_论文_v4.2_中文.docx
+python paper/graphical_abstract.py   # → graphical_abstract.{svg,png}
 ```
 
 All output paths resolve relative to this directory (`__file__`), so the
