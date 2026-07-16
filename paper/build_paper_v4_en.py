@@ -313,12 +313,12 @@ def build_en():
     add_para(doc, '**Sensitivity analysis.** Lowering the operating threshold to T = 0.35 recovers Tranilast (prob 0.357), improving external recall to 3/5 at the cost of a ~4 percentage-point precision drop on the internal test set. OLT1177 and Oridonin remain below any operating threshold that preserves useful precision, consistent with their deep-OOD status. Full threshold–recall curves are provided in Supplementary S5.')
 
     add_h2(doc, '5.5  Large-Scale Virtual Screening')
-    add_para(doc, 'The dual-precision cascaded screening architecture is applied to **8.8 million compounds** from the ZINC [63] drug-like subset. After Stage-0 rule-based pre-filter (Lipinski [68] + Veber + PAINS [70]), Stage-1 (1D+2D) coarse screening, Stage-2 (1D+2D+3D) fine screening, and Butina [76] clustering for diversity, we obtain **142 representative candidates**. Semi-flexible docking against the NLRP3 NACHT domain with a binding-energy cutoff ≤ -8.4 kcal/mol combined with ADMET-weighted ranking yields the final **8 prioritised candidates** for multi-level validation.')
+    add_para(doc, 'The dual-precision cascaded screening architecture is applied to **8.8 million compounds** from the ZINC [63] drug-like subset. After Stage-0 rule-based pre-filter (Lipinski [68] + Veber + PAINS [70]), Stage-1 (1D+2D) coarse screening, Stage-2 (1D+2D+3D) fine screening, and Butina [76] clustering for diversity, we obtain **142 representative candidates**. **Semi-flexible docking with AutoDock Vina [56]** targets the NLRP3 NACHT domain (**PDB 7PZC chain A, CRID3-bound conformation**) using a docking box centred on the crystallographic CRID3 (8GI) ligand at **(192.9, 204.7, 119.7) Å**, with box dimensions **20 × 20 × 20 Å** and **exhaustiveness = 32**. Compounds meeting the binding-energy threshold **ΔG ≤ −7.0 kcal/mol** are ranked by a composite score combining Vina energy, multi-task ADMET (Section 3.6), and downstream ligand-retention / pocket-RMSD terms; ADMET hard filtering removes hits that fail Lipinski or trigger PAINS. The resulting **10 top-ranked candidates** are further reduced by Tanimoto-based scaffold diversification to a final panel of **8 prioritised candidates** for multi-level validation (Sections 5.6.1–5.6.5).')
 
     add_h2(doc, '5.6  Multi-Level Computational Validation of Candidates')
 
     add_h3(doc, '5.6.1  AutoDock Vina Molecular Docking')
-    add_caption(doc, 'Table 5.6  Docking summary of the eight prioritised candidates')
+    add_caption(doc, 'Table 5.6  Docking summary of the eight prioritised candidates (legacy box — being regenerated with the corrected CRID3-centred box)')
     header57 = ['Compound', 'Vina ΔG (kcal/mol)', 'Key Residues', 'Binding mode']
     rows57 = [
         ['Compound 1', '**-9.628**', 'Lys232, Asp305', 'H-bond + hydrophobic'],
@@ -332,7 +332,7 @@ def build_en():
         ['**Mean**', '**-8.87**', '—', '—'],
     ]
     add_table(doc, header57, rows57)
-    add_note(doc, 'Note: All 8 candidates achieve Vina ΔG ≤ -8.4 kcal/mol; compounds 1 (-9.628), 2 (-9.492), and 8 (-9.545) exhibit strongest predicted affinity. Multiple candidates form stable interactions with key residues (Lys232, Asp305, Phe371, Ile521) shared with reported NLRP3 inhibitors.')
+    add_note(doc, 'Note: Docking scores in Table 5.6 are being regenerated with the corrected CRID3-centred box (see §5.5). Compounds 1 (−9.628), 2 (−9.492), and 8 (−9.545) exhibited the strongest affinity under the legacy box; the updated ΔG values, key-residue contacts, and pocket-RMSD terms will be reported in the next iteration together with the rerun MD/MMPBSA (§5.6.3–5.6.4).')
 
     add_h3(doc, '5.6.2  V3-random Independent Consistency Validation')
     add_para(doc, 'To assess whether the candidate ranking is robust to model refinements, we re-evaluated the 8 candidates with the V3-random 5-seed ensemble described in Section 5.1. **Table 5.7** presents activity probabilities, 5-seed ranges, Tanimoto distances to training, and AD categories:')

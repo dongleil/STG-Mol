@@ -496,12 +496,12 @@ def build_zh():
     add_para(doc, '**敏感性分析**：将操作阈值降至 T = 0.35 可召回 Tranilast (prob 0.357)，使外部召回率提升至 3/5，代价是内部测试集精度下降约 4 个百分点。OLT1177 与 Oridonin 在任何保留可用精度的操作阈值下均无法召回，符合其深度 OOD 状态。完整的阈值—召回曲线见补充材料 S5。')
 
     add_h2(doc, '5.5  大规模虚拟筛选实证')
-    add_para(doc, '将 STG-Mol 双精度级联筛选架构应用于 ZINC [63] 数据库 **880 万分子**（Drug-like subset）。经过 Stage 0 规则过滤（Lipinski [68] + Veber + PAINS [70]）、Stage 1 (1D+2D) 快速粗筛、Stage 2 (1D+2D+3D) 完整精筛，以及基于 Butina [76] 聚类的多样性去冗余，最终获得 **142 个代表性候选分子**。经过 AutoDock Vina [56] 半柔性对接（受体：NLRP3 NACHT 结构域；对接盒中心：186.818, 198.697, 127.866；盒大小 25×25×25 Å；exhaustiveness=16），设定结合能阈值 ≤ -8.4 kcal/mol 并结合 ADMET 综合评分加权排序，优选出 **8 个候选化合物** 进入多层次计算验证。')
+    add_para(doc, '将 STG-Mol 双精度级联筛选架构应用于 ZINC [63] 数据库 **880 万分子**（Drug-like subset）。经过 Stage 0 规则过滤（Lipinski [68] + Veber + PAINS [70]）、Stage 1 (1D+2D) 快速粗筛、Stage 2 (1D+2D+3D) 完整精筛，以及基于 Butina [76] 聚类的多样性去冗余，最终获得 **142 个代表性候选分子**。**AutoDock Vina [56] 半柔性对接**采用 NLRP3 NACHT 结构域（**PDB 7PZC chain A，CRID3 复合物构象**）作为受体，对接盒中心对齐晶体 CRID3 (8GI) 配体质心：**(192.9, 204.7, 119.7) Å**，盒尺寸 **20 × 20 × 20 Å**，**exhaustiveness = 32**。以结合能阈值 **ΔG ≤ −7.0 kcal/mol** 为门槛，结合 Vina 能量、多任务 ADMET（第 3.6 节）、以及下游 ligand retention / pocket RMSD 项综合评分排序；ADMET 硬过滤剔除违反 Lipinski 或触发 PAINS 的分子。**Top 10 排名候选**经 Tanimoto 骨架多样化去冗余后，得到最终 **8 个优选候选分子**进入多层次验证（第 5.6.1–5.6.5 节）。')
 
     add_h2(doc, '5.6  候选化合物多层次计算验证')
 
     add_h3(doc, '5.6.1  AutoDock Vina 分子对接')
-    add_caption(doc, '表 5.6  8 个候选化合物的分子对接与结合位点信息')
+    add_caption(doc, '表 5.6  8 个候选化合物的分子对接与结合位点信息（旧盒结果，正在用 CRID3 对齐盒重新生成）')
     header57 = ['化合物', 'Vina ΔG (kcal/mol)', '关键相互作用残基', '结合模式']
     rows57 = [
         ['Compound 1', '**-9.628**', 'Lys232, Asp305', 'H-bond + hydrophobic'],
@@ -515,7 +515,7 @@ def build_zh():
         ['**均值**', '**-8.87**', '—', '—'],
     ]
     add_table(doc, header57, rows57)
-    add_note(doc, '注：所有 8 个化合物 Vina ΔG ≤ -8.4 kcal/mol，其中化合物 1（-9.628）、2（-9.492）、8（-9.545）表现最优；多个候选与已报道 NLRP3 抑制剂共享的关键残基（Lys232、Asp305、Phe371、Ile521）形成稳定相互作用。')
+    add_note(doc, '注：Table 5.6 中的对接分数正在使用修正后的 CRID3 对齐盒（见 5.5 节）重新生成。旧盒条件下 Compound 1 (−9.628)、2 (−9.492)、8 (−9.545) 表现最优；更新的 ΔG 数值、关键残基接触与口袋 RMSD 项将在下一次迭代中与 MD/MMPBSA 重跑结果（5.6.3–5.6.4 节）一并报告。')
 
     add_h3(doc, '5.6.2  V3-random 独立一致性验证')
     add_para(doc, '为验证候选化合物 ranking 对模型细节的鲁棒性，我们使用第 5.1 节 V3-random 5-seed 集成模型对 8 个候选进行独立预测。**表 5.7** 展示 activity 概率、5-seed 一致性、Tanimoto 相似度与 AD 类别：')
