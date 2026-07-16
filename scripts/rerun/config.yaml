@@ -1,0 +1,91 @@
+# v4.3 rerun pipeline: Vina + MD + MMPBSA + ADMET on top2000 → 8 candidates
+# =========================================================================
+# All paths are POSIX (WSL Ubuntu). GPU: RTX 4090 exposed to WSL2.
+# Conda envs assumed:
+#   nlrp3     — python + rdkit + acpype + gmx_MMPBSA + vina + admet_ai
+#   gmx_cuda  — GROMACS with CUDA
+# =========================================================================
+
+run_name: v4.3_top2000_CRID3aligned
+
+# ── Inputs ─────────────────────────────────────────────────────────────
+receptor_pdbqt:  /home/dll/NLRP3_2/src/receptor/NLRP3_7PZC_chainA_v2.pdbqt
+receptor_pdb:    /home/dll/NLRP3_2/src/receptor/7PZC_chainA_protein_only.pdb
+input_csv:       /home/dll/NLRP3_2/data/final_top2000_by_score.csv
+output_dir:      /home/dll/NLRP3_2/results_v4.3
+
+# STG-Mol V3-random checkpoint (for Stage F re-scoring the 8 selected)
+stg_mol_ckpt_dir: /home/dll/NLRP3_2/models/v26_v3_random_5seeds
+stg_mol_config:   /home/dll/NLRP3_2/configs/train_v26_v3_random.yaml
+
+# ── Docking box (CRID3 8GI centroid in 7PZC chain A, verified 0.06 Å) ──
+box_center: [192.9, 204.7, 119.7]
+box_size:   [20, 20, 20]
+
+# ── Vina ───────────────────────────────────────────────────────────────
+vina_executable: vina
+vina_exhaustiveness: 32
+vina_n_poses: 5
+vina_n_workers: 8              # parallel ligand jobs (each Vina thread=4)
+vina_seed: 42                  # reproducible
+
+# ── Candidate selection ────────────────────────────────────────────────
+# Vina + Tanimoto only, as user requested.
+select_top_n_by_vina: 10
+tanimoto_dedup_cutoff: 0.7    # scaffold-diversity cutoff → final 8
+final_n_candidates:    8
+
+# ── MD (GROMACS) ───────────────────────────────────────────────────────
+gmx_env: gmx_cuda              # conda env for GPU-accelerated gmx
+gmx_executable: gmx
+acpype_env: nlrp3
+force_field: amber99sb-ildn
+water_model: tip3p
+box_type: dodecahedron
+box_padding_nm: 1.0
+ion_conc_M: 0.15               # 0.15 M NaCl
+temperature_K: 300
+pressure_bar: 1.0
+
+# Equilibration protocol (hardened for RMSD convergence)
+em_steep_steps: 5000
+em_steep_tol:   1000            # kJ/mol/nm
+em_cg_steps:    5000
+em_cg_tol:      100
+nvt_ps:         100             # position-restrained
+npt_restr_ps:   200             # Parrinello-Rahman with restraints
+npt_prod_ps:    500             # NPT no restraints (still not "production")
+
+# Production
+md_total_ns: 100                # 100 ns to match paper
+md_dt_fs:    2                  # 2 fs with LINCS
+md_output_dt_ps: 10             # trajectory every 10 ps → 10000 frames
+md_gpu_id: 0
+md_threads: 8
+
+# Adaptive extension
+md_convergence_check: true
+md_convergence_last_ns: 30      # analyse RMSD in last 30 ns
+md_convergence_tol_A: 0.5       # 95% CI drift threshold
+md_extend_to_ns: 200            # if not converged, extend to 200 ns
+
+# Analysis window (post-convergence)
+md_analysis_start_ns: 20        # discard 0-20 ns as further equilibration
+
+# ── MMPBSA ─────────────────────────────────────────────────────────────
+mmpbsa_executable: gmx_MMPBSA
+mmpbsa_start_ns: 70             # frames 70-100 ns
+mmpbsa_end_ns:   100
+mmpbsa_n_frames: 200            # evenly sampled
+mmpbsa_interval_frames: 15      # 100 ns × 100 frames/ns / 15 ≈ 200 frames
+mmpbsa_method: [PB, GB]         # do both, report PB in main table
+
+# ── ADMET ──────────────────────────────────────────────────────────────
+admet_ai_env: nlrp3             # admet_ai installed here
+admet_include_swissadme: false  # SwissADME requires web scraping; opt-in
+
+# ── Compute budget assertions ──────────────────────────────────────────
+# Stage A (Vina 2000): ~15 h GPU-free (CPU-only Vina) on 8 workers
+# Stage C (MD 8 × 100 ns): ~64 h GPU
+# Stage D (MMPBSA 8 × 200 frames): ~4 h GPU-free
+# Total: ~3.5 days

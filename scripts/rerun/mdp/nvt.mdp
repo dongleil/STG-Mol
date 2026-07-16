@@ -1,0 +1,51 @@
+; nvt.mdp — 100 ps NVT equilibration with heavy-atom position restraints
+; --------------------------------------------------------------------
+; Warm the system from 0 K to 300 K while keeping solute geometry fixed.
+; Enables `-DPOSRES` on the ligand/receptor topologies (posre.itp files
+; are included conditionally by pdb2gmx and acpype).
+; ------------------------------------------------------------------------
+define                  = -DPOSRES
+
+integrator              = md
+nsteps                  = 50000       ; 100 ps @ 2 fs
+dt                      = 0.002
+
+; Output — sparse during equilibration
+nstxout                 = 0
+nstvout                 = 0
+nstfout                 = 0
+nstenergy               = 500
+nstlog                  = 500
+nstxout-compressed      = 5000
+
+; Bond constraints — LINCS on h-bonds only for 2-fs stability
+continuation            = no
+constraint-algorithm    = LINCS
+constraints             = h-bonds
+lincs-iter              = 1
+lincs-order             = 4
+
+; Neighbour searching
+cutoff-scheme           = Verlet
+nstlist                 = 10
+pbc                     = xyz
+
+; Electrostatics & VdW
+coulombtype             = PME
+rcoulomb                = 1.0
+rvdw                    = 1.0
+DispCorr                = EnerPres
+
+; Temperature coupling — split solute (Protein_LIG) and solvent (Water_and_ions)
+tcoupl                  = V-rescale
+tc-grps                 = Protein_LIG Water_and_ions
+tau_t                   = 0.1 0.1
+ref_t                   = 300 300
+
+; No pressure coupling in NVT
+pcoupl                  = no
+
+; Velocity generation — cold-start
+gen_vel                 = yes
+gen_temp                = 300
+gen_seed                = -1

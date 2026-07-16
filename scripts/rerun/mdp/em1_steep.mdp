@@ -1,0 +1,22 @@
+; em1_steep.mdp — Steepest descent minimisation (stage 1/2)
+; Removes worst clashes from solvation before conjugate gradient refinement.
+; ------------------------------------------------------------------------
+integrator      = steep
+emstep          = 0.01
+emtol           = 1000        ; kJ/mol/nm; loose target for stage 1
+nsteps          = 5000
+
+; Neighbour searching
+cutoff-scheme   = Verlet
+nstlist         = 10
+ns_type         = grid
+pbc             = xyz
+
+; Electrostatics & VdW
+coulombtype     = PME
+rcoulomb        = 1.0
+rvdw            = 1.0
+vdw-type        = Cut-off
+
+; No constraints during minimisation (avoid LINCS warnings on bad geometry)
+constraints     = none

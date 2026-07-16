@@ -1,0 +1,58 @@
+; md_prod.mdp — 100 ns production MD
+; ------------------------------------------------------------------------
+; This is the ONLY trajectory used for analysis. All statistics reported
+; in Tables 5.8 and 5.9 (RMSD, RMSF, H-bond, MMPBSA) are computed from
+; this run (with the first 20 ns discarded as further equilibration).
+; If backbone RMSD in the last 30 ns still drifts > 0.5 Å (95% CI over
+; 5-ns blocks), the driver extends the run to 200 ns via convert-tpr.
+; ------------------------------------------------------------------------
+integrator              = md
+nsteps                  = 50000000    ; 100 ns @ 2 fs
+dt                      = 0.002
+
+; Output — 10 ps per frame → 10 000 frames in 100 ns
+nstxout                 = 0
+nstvout                 = 0
+nstfout                 = 0
+nstenergy               = 5000
+nstlog                  = 5000
+nstxout-compressed      = 5000
+compressed-x-grps       = System
+
+; Constraints
+continuation            = yes
+constraint-algorithm    = LINCS
+constraints             = h-bonds
+lincs-iter              = 1
+lincs-order             = 4
+
+; Neighbour searching
+cutoff-scheme           = Verlet
+nstlist                 = 10
+pbc                     = xyz
+
+; Electrostatics & VdW
+coulombtype             = PME
+rcoulomb                = 1.0
+rvdw                    = 1.0
+DispCorr                = EnerPres
+
+; Temperature coupling
+tcoupl                  = V-rescale
+tc-grps                 = Protein_LIG Water_and_ions
+tau_t                   = 0.1 0.1
+ref_t                   = 300 300
+
+; Pressure coupling
+pcoupl                  = Parrinello-Rahman
+pcoupltype              = isotropic
+tau_p                   = 2.0
+ref_p                   = 1.0
+compressibility         = 4.5e-5
+
+; Centre-of-mass motion removal for the whole system
+comm-mode               = Linear
+comm-grps               = System
+nstcomm                 = 100
+
+gen_vel                 = no
