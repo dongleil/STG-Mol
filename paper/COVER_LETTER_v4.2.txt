@@ -1,0 +1,128 @@
+STG-Mol v4.2 — Cover Letter for Computers in Biology and Medicine
+=================================================================
+
+[Date: to be filled]
+
+Dear Editor-in-Chief,
+
+We are pleased to submit our manuscript entitled
+"STG-Mol: A Multi-Modal, Multi-Task AI-Driven Virtual Screening Framework
+for NLRP3 Inhibitor Discovery"
+for consideration for publication in Computers in Biology and Medicine.
+
+## Motivation and Novelty
+
+The NLRP3 inflammasome is a validated therapeutic target for a broad spectrum
+of chronic inflammatory disorders — type-2 diabetes, atherosclerosis,
+Alzheimer's disease, gout, non-alcoholic steatohepatitis — yet no FDA-approved
+NLRP3-targeting drug is available. The Phase-II clinical failure of MCC950
+due to hepatotoxicity (DILI) highlights a critical need for computational
+frameworks that co-optimise potency AND drug-likeness during virtual screening.
+Our work addresses this need through three principal contributions:
+
+1. **Hierarchical trimodal molecular representation.** We integrate sequence
+(Mol2Vec), topology (D-MPNN), and geometry (SphereNet) via a hierarchical
+fusion module (cross-modal attention + gated fusion + low-rank bilinear +
+learnable importance network) that performs sample-level modality reweighting.
+This design overcomes the modality-collapse and lack-of-adaptivity limitations
+of static concat/gated fusion.
+
+2. **Joint activity–ADMET multi-task learning.** Beyond the primary activity
+task, we simultaneously predict five ADMET drug-likeness indicators (Lipinski
+RO5, QED, PAINS, synthetic accessibility, LogP moderation) in a unified model.
+Under matched conditions (Table 5.3), multi-task training reduces the 5-seed
+ROC-AUC standard deviation by 42% and improves ensemble F1 by +0.020,
+MCC by +0.028 and Recall by +0.037 — directly implementing the modern
+"activity and safety in parallel" paradigm and yielding actionable DILI
+risk predictions for every candidate.
+
+3. **Rigorous dual-protocol evaluation with honest applicability-domain
+characterisation.** We report performance under both Bemis–Murcko scaffold
+splitting (primary, ROC-AUC 0.9167) and random splitting (reference, ROC-AUC
+0.9267 ± 0.0107; 5-seed ensemble 0.9408) on the same curated dataset. All
+data-curation criteria — including removal of five published inhibitors and
+their Tanimoto ≥ 0.7 neighbours — were fixed a priori, and the test set was
+never used for model or data selection. Early-recognition performance is
+strong (BEDROC@α = 20 = 0.9028; EF@5% = 3.47 vs. theoretical upper bound
+N/P = 3.7612).
+
+## Honest Reporting of Applicability-Domain Limits
+
+A distinctive feature of our submission is an explicitly *transparent*
+treatment of the applicability domain. On external validation against the
+five published NLRP3 inhibitors held out from training, STG-Mol recovers
+2/5 at the default threshold (MCC950, CY-09); the three deeply out-of-domain
+scaffolds (Tranilast, OLT1177, Oridonin) receive appropriately low confidence,
+with predicted probability trending positively with Tanimoto distance to
+training data (Spearman ρ = 0.80, Pearson r = 0.96, n = 5). We frame this
+2/5 recall as an applicability-domain limit of any single-target model
+trained on the current public NLRP3 corpus — dominated by MCC950-class
+diarylsulfonylureas — and propose an AD-gated deployment strategy that
+routes in-AD compounds through STG-Mol and out-of-domain chemotypes through
+orthogonal similarity/pharmacophore search. We believe this level of
+transparency about model limits is critical for the field and directly
+addresses concerns raised by the QSAR / cheminformatics community about
+over-optimistic reporting.
+
+## Clinical and Practical Impact
+
+Applying STG-Mol under the dual-precision cascaded protocol to 8.8 million
+ZINC compounds, we identify eight in-silico NLRP3 candidates supported by a
+complete multi-level computational evidence chain: AutoDock Vina docking
+(mean ΔG = −8.87 kcal/mol; three candidates below −9.4), 100 ns molecular
+dynamics simulations (GROMACS, AMBER99SB-ILDN + GAFF2), MMPBSA free-energy
+analysis, and multi-task ADMET assessment. For each candidate, the ADMET
+module actively flags DILI risk (predicted ≥ 0.808 for all eight compounds),
+providing direction for lead optimisation — a capability directly motivated
+by the MCC950 Phase-II failure. Prospective wet-lab validation of these
+candidates is planned as our immediate next step.
+
+## Fit to Computers in Biology and Medicine
+
+Our study integrates deep learning (multi-modal / multi-task architecture),
+computational chemistry (docking, MD, MMPBSA free-energy), and translational
+medicine (NLRP3 pharmacology, DILI risk assessment). This interdisciplinary
+scope directly aligns with the journal's mission of publishing rigorous
+computational studies with demonstrable clinical relevance. The complete
+code, curated dataset, and per-seed prediction artefacts are publicly
+available on GitHub (https://github.com/dongleil/STG-Mol), together with a
+one-command reproduction workflow, enabling full reproducibility and
+community extension.
+
+## Erratum Disclosure (v4.1 → v4.2)
+
+In an earlier internal draft (v4.1) we reported EF@1% = 3.76. On our
+random-split test set (N = 252, P = 67) this value does not exceed the
+theoretical upper bound N/P ≈ 3.7612, but top-k = 3 molecules is too
+narrow an interval for a stable estimator — a single true-positive
+displacement shifts EF@1% by ~1.0 in absolute terms. In the current v4.2
+manuscript we therefore report EF@5% / EF@10% / EF@20%, with an explicit
+erratum note in Table 5.1c documenting this correction. All numbers were
+recomputed via a verified script (`scripts/recompute_metrics_v42.py`)
+that asserts `EF ≤ N/P` at run time to prevent recurrence.
+
+## Author Contributions and Declarations
+
+- Authors: [to be filled with author names and affiliations]
+- No conflicts of interest to declare.
+- This manuscript has not been published elsewhere and is not under
+  consideration by any other journal.
+- All authors have approved the final version.
+- Code and data are public; we welcome open review and replication.
+
+## Suggested Reviewers
+
+We suggest the following experts as potential reviewers with relevant
+expertise in multi-modal molecular representation learning, virtual
+screening applicability-domain analysis, and NLRP3 pharmacology:
+
+[to be filled — 3–5 names with affiliations and emails]
+
+We look forward to your consideration and would be pleased to address
+any questions or concerns.
+
+Sincerely,
+
+[Corresponding author name]
+[Institutional affiliation]
+[Email]

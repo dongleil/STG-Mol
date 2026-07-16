@@ -1,0 +1,14 @@
+STG-Mol v4.2 — Highlights (Elsevier / Computers in Biology and Medicine)
+========================================================================
+
+Each item ≤ 85 characters (Elsevier limit); 3–5 bullets total.
+
+* Trimodal fusion (Mol2Vec+D-MPNN+SphereNet) with sample-level modality reweighting.
+
+* Joint activity + 5-ADMET multi-task cuts 5-seed AUC std 42% and flags DILI risk.
+
+* Dual scaffold/random split, leakage-free; primary Test AUC 0.9167 (scaffold).
+
+* AD-aware external test: 2/5 recall, monotonic Tanimoto-vs-prob trend (ρ = 0.80).
+
+* Eight in-silico NLRP3 hits via docking, 100 ns MD, MMPBSA, and joint ADMET.
