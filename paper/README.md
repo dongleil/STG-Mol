@@ -35,6 +35,29 @@ Numbers in Tables 5.1a / 5.1b / 5.1c come from `scripts/recompute_metrics_v42.py
 Markdown snippet you can paste directly into these builders. Never hand-edit
 the numbers into the docx — always update the builder Python.
 
+### Reproducing the two evaluation protocols
+
+**V3-scaffold (Table 5.1a, primary):**
+```bash
+# Data already lives at data/processed/nlrp3/{train,val,test}.csv (scaffold split)
+python src/training/train_v26.py --config configs/train_v26_scaffold.yaml
+# ~90 min per seed on RTX 4090, ~7.5 h total for 5 seeds
+python scripts/recompute_metrics_v42.py \
+    --pred_dir results/v26_v3_scaffold/<run-timestamp>/predictions \
+    --split_name V3-scaffold \
+    --output_md v42_metrics_v3_scaffold.md
+# Paste values into paper/build_paper_v4_en.py Table 5.1a / 5.1c V3-scaffold column
+```
+
+**V3-random (Table 5.1b, reference):**
+```bash
+python src/training/train_v26.py --config configs/train_v26_v3_random.yaml
+python scripts/recompute_metrics_v42.py \
+    --pred_dir results/v26_v3_random/<run-timestamp>/predictions \
+    --split_name V3-random \
+    --output_md v42_metrics_v3_random.md
+```
+
 ## Version history
 
 | Version | Fixes | Status |

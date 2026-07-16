@@ -1,19 +1,23 @@
 # ============================================================================
-# Training config for **leakage-free scaffold split** run.
-# Uses the same v26 Multi-Task architecture, but points at the new dataset
-# where the 5 published NLRP3 inhibitors + their Tanimoto ≥ 0.7 neighbours
-# have been explicitly held out as external validation.
+# V3-scaffold config: V3 dataset (leakage-free) + Bemis-Murcko scaffold split.
 #
-# Data expected under: data/processed/nlrp3_scaffold/
-#   train.csv, val.csv, test.csv, external_holdout.csv
+# This is the paper's PRIMARY evaluation protocol (Table 5.1a). Same 2,521
+# molecules and same data-curation pipeline as V3-random (5 published NLRP3
+# inhibitors + their Tanimoto >= 0.7 neighbours moved to external hold-out),
+# but molecules are grouped by generic Bemis-Murcko scaffold before splitting
+# so no scaffold appears in more than one of {train, val, test}. Expected
+# 5-seed ROC-AUC ~0.9167 (headline result in the paper's Table 5.1a).
+#
+# Test set: N = 193, P = 54, active prevalence 27.98%.
+# EF theoretical upper bound: N/P = 193/54 = 3.5741.
 # ============================================================================
 data:
-  train_path: data/processed/nlrp3_scaffold/train.csv
-  val_path: data/processed/nlrp3_scaffold/val.csv
-  test_path: data/processed/nlrp3_scaffold/test.csv
+  train_path: data/processed/nlrp3/train.csv
+  val_path: data/processed/nlrp3/val.csv
+  test_path: data/processed/nlrp3/test.csv
 
 experiment:
-  name: v26_scaffold_5seeds
+  name: v26_v3_scaffold_5seeds
   random_seeds:
   - 42
   - 123
@@ -47,7 +51,7 @@ mol2vec:
   radius: 1
 
 output:
-  base_dir: results/v26_scaffold
+  base_dir: results/v26_v3_scaffold
   save_figures: true
   save_models: true
 
