@@ -81,7 +81,12 @@ mmpbsa_interval_frames: 15      # 100 ns × 100 frames/ns / 15 ≈ 200 frames
 mmpbsa_method: [PB, GB]         # do both, report PB in main table
 
 # ── ADMET ──────────────────────────────────────────────────────────────
-admet_ai_env: nlrp3             # admet_ai installed here
+admet_ai_env: admet_ai          # DEDICATED env: admet-ai's pandas 2.1.x
+                                # conflicts with gmx_MMPBSA's pandas 1.5.3
+                                # in the `nlrp3` env, so they must stay
+                                # separate. Create via:
+                                #   conda create -n admet_ai python=3.11 -y
+                                #   conda activate admet_ai && pip install admet-ai
 admet_include_swissadme: false  # SwissADME requires web scraping; opt-in
 
 # ── Compute budget assertions ──────────────────────────────────────────
