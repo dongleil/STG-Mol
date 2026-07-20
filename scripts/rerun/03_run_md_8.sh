@@ -121,7 +121,15 @@ run_stage () {
         return 0
     fi
     echo "  [run ]  ${name}"
-    "$@"
+    # Explicit exit-on-fail. Don't rely on `set -e` propagation because
+    # the enclosing subshell does `exec > >(tee ...) 2>&1`, which breaks
+    # errexit inheritance. Without this, a failing stage silently continues
+    # and touches marker files for every downstream stage that also fails.
+    if ! "$@"; then
+        local rc=$?
+        echo "  [FAIL]  ${name} exited with code ${rc}" >&2
+        exit "${rc}"
+    fi
     touch "${marker}"
 }
 
