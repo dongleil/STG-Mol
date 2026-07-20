@@ -130,7 +130,14 @@ run_stage () {
         echo "  [FAIL]  ${name} exited with code ${rc}" >&2
         exit "${rc}"
     fi
+    # GROMACS gmx sometimes exits 0 even on Fatal error. If EXPECT_FILE is
+    # set (per-stage envvar), also verify the expected artefact exists.
+    if [[ -n "${EXPECT_FILE:-}" ]] && [[ ! -s "${EXPECT_FILE}" ]]; then
+        echo "  [FAIL]  ${name} exited 0 but expected output '${EXPECT_FILE}' is missing/empty" >&2
+        exit 1
+    fi
     touch "${marker}"
+    unset EXPECT_FILE
 }
 
 # ── Per-compound pipeline ───────────────────────────────────────────────
@@ -181,7 +188,14 @@ run_compound () {
         # 3. Build complex — merge coordinates and topology
         run_stage build_complex python3 - <<PYEOF
 # Merge receptor.gro + lig.gro → complex.gro; edit topology to include ligand.
+# CRITICAL: acpype's lig.itp contains BOTH [atomtypes] and [moleculetype].
+# GROMACS requires [atomtypes] to appear BEFORE any [moleculetype], which
+# means it can't sit inside an #include that comes after Protein's own
+# [moleculetype] in receptor.top. So we split it into:
+#     lig_atomtypes.itp  — only the [ atomtypes ] section (included EARLY)
+#     lig.itp            — everything else, no [ atomtypes ] (included LATE)
 from pathlib import Path
+import re
 
 def read_gro(path):
     lines = Path(path).read_text().splitlines()
@@ -198,23 +212,73 @@ out  = ['Protein-ligand complex', f'{total:5d}']
 out += rec_atoms + lig_atoms + [box]
 Path('complex.gro').write_text('\n'.join(out) + '\n')
 
-# Compose topol.top: receptor.top + ligand include + [ molecules ] append
+# ---- Split lig.itp into atomtypes.itp + moleculetype-and-later.itp ----
+raw = Path('lig.itp').read_text()
+# Split on section headers
+sections = re.split(r'(?m)^(\[ *[A-Za-z_]+ *\])', raw)
+# sections = ['<preamble>', '[ header1 ]', '<body1>', '[ header2 ]', '<body2>', ...]
+atomtypes_block = ''
+other_blocks = ''
+if sections and sections[0].strip():
+    other_blocks += sections[0]  # preamble comments
+for i in range(1, len(sections), 2):
+    header = sections[i]
+    body = sections[i+1] if i+1 < len(sections) else ''
+    if re.search(r'atomtypes', header, re.IGNORECASE):
+        atomtypes_block += header + body
+    else:
+        other_blocks += header + body
+
+if atomtypes_block:
+    Path('lig_atomtypes.itp').write_text(atomtypes_block)
+    Path('lig.itp').write_text(other_blocks)
+    print('Split lig.itp → lig_atomtypes.itp + lig.itp (no atomtypes)')
+else:
+    print('lig.itp has no [ atomtypes ] — leaving unchanged')
+
+# ---- Compose topol.top ----
+#   receptor.top has structure:
+#     #include ".../forcefield.itp"
+#     [ moleculetype ] Protein_chain_A
+#     ...
+#     [ system ]
+#     [ molecules ]
+#     Protein_chain_A 1
+#
+# We must insert:
+#   (a) #include "lig_atomtypes.itp" AFTER the forcefield include but
+#       BEFORE the first [ moleculetype ]
+#   (b) #include "lig.itp" ANYWHERE after that (but before [ system ] is neat)
+#   (c) "LIG              1" line under [ molecules ]
+
 top_in = Path('receptor.top').read_text()
-lig_itp_include = '\n; Include ligand topology\n#include "lig.itp"\n'
-# Insert include just before the [ system ] section
+
+# (a) Insert lig_atomtypes include right after the forcefield include line
+if Path('lig_atomtypes.itp').exists():
+    ff_include_re = re.compile(r'(#include\s+"[^"]*forcefield\.itp"\s*\n)')
+    if ff_include_re.search(top_in):
+        top_in = ff_include_re.sub(
+            r'\1\n; Ligand atom types (must precede any [ moleculetype ])\n'
+            r'#include "lig_atomtypes.itp"\n', top_in, count=1)
+    else:
+        # fallback: prepend
+        top_in = ('; Ligand atom types (must precede any [ moleculetype ])\n'
+                  '#include "lig_atomtypes.itp"\n' + top_in)
+
+# (b) Insert lig.itp include just before [ system ]
+lig_itp_include = '\n; Include ligand moleculetype\n#include "lig.itp"\n'
 if '[ system ]' in top_in:
-    top_in = top_in.replace('[ system ]', lig_itp_include + '\n[ system ]')
+    top_in = top_in.replace('[ system ]', lig_itp_include + '\n[ system ]', 1)
 else:
     top_in = top_in + lig_itp_include
 
-# Append ligand to [ molecules ]. acpype's lig.itp declares "LIG".
-if top_in.rstrip().endswith('[ molecules ]'):
-    top_in += '\nProtein_chain_A 1\nLIG 1\n'
-else:
-    # find last '[ molecules ]' section and append a LIG line
+# (c) Append LIG line to [ molecules ]
+if not re.search(r'^\s*LIG\s+\d', top_in, re.MULTILINE):
     top_in = top_in.rstrip() + '\nLIG              1\n'
+
 Path('topol.top').write_text(top_in)
 print('complex.gro atoms =', total)
+print('topol.top rewritten with split ligand includes')
 PYEOF
 
         # 4. Solvate
@@ -224,22 +288,22 @@ PYEOF
             -o solvated.gro -p topol.top
 
         # 5. Add ions to reach 0.15 M NaCl
-        run_stage ion_grompp ${GMX} grompp -f "${MDP_DIR}/em1_steep.mdp" \
+        EXPECT_FILE=ions.tpr run_stage ion_grompp ${GMX} grompp -f "${MDP_DIR}/em1_steep.mdp" \
             -c solvated.gro -p topol.top -o ions.tpr -maxwarn 3
-        run_stage ionise bash -c "
+        EXPECT_FILE=ionised.gro run_stage ionise bash -c "
             printf 'SOL\n' | ${GMX} genion -s ions.tpr -o ionised.gro -p topol.top \
                 -pname NA -nname CL -neutral -conc ${ion_conc_M}
         "
 
         # 6. EM stage 1 — steepest descent
-        run_stage em1_grompp ${GMX} grompp -f "${MDP_DIR}/em1_steep.mdp" \
+        EXPECT_FILE=em1.tpr run_stage em1_grompp ${GMX} grompp -f "${MDP_DIR}/em1_steep.mdp" \
             -c ionised.gro -p topol.top -o em1.tpr -maxwarn 3
-        run_stage em1_run ${GMX} mdrun -deffnm em1 -gpu_id ${md_gpu_id} -v
+        EXPECT_FILE=em1.gro run_stage em1_run ${GMX} mdrun -deffnm em1 -gpu_id ${md_gpu_id} -v
 
         # 7. EM stage 2 — conjugate gradient
-        run_stage em2_grompp ${GMX} grompp -f "${MDP_DIR}/em2_cg.mdp" \
+        EXPECT_FILE=em2.tpr run_stage em2_grompp ${GMX} grompp -f "${MDP_DIR}/em2_cg.mdp" \
             -c em1.gro -p topol.top -o em2.tpr -maxwarn 3
-        run_stage em2_run ${GMX} mdrun -deffnm em2 -gpu_id ${md_gpu_id} -v
+        EXPECT_FILE=em2.gro run_stage em2_run ${GMX} mdrun -deffnm em2 -gpu_id ${md_gpu_id} -v
 
         # 8. Build a merged index for coupling groups Protein_LIG / Water_and_ions
         run_stage make_ndx bash -c "
@@ -279,24 +343,24 @@ PYEOF
         fi
 
         # 9. NVT — 100 ps position-restrained
-        run_stage nvt_grompp ${GMX} grompp -f "${MDP_DIR}/nvt.mdp" \
+        EXPECT_FILE=nvt.tpr run_stage nvt_grompp ${GMX} grompp -f "${MDP_DIR}/nvt.mdp" \
             -c em2.gro -r em2.gro -p topol.top -n index.ndx \
             -o nvt.tpr -maxwarn 3
-        run_stage nvt_run ${GMX} mdrun -deffnm nvt \
+        EXPECT_FILE=nvt.gro run_stage nvt_run ${GMX} mdrun -deffnm nvt \
             -gpu_id ${md_gpu_id} -nt ${md_threads} -pin on -v
 
         # 10. NPT restrained — 200 ps
-        run_stage npt_restr_grompp ${GMX} grompp -f "${MDP_DIR}/npt_restr.mdp" \
+        EXPECT_FILE=npt_restr.tpr run_stage npt_restr_grompp ${GMX} grompp -f "${MDP_DIR}/npt_restr.mdp" \
             -c nvt.gro -r nvt.gro -t nvt.cpt -p topol.top -n index.ndx \
             -o npt_restr.tpr -maxwarn 3
-        run_stage npt_restr_run ${GMX} mdrun -deffnm npt_restr \
+        EXPECT_FILE=npt_restr.gro run_stage npt_restr_run ${GMX} mdrun -deffnm npt_restr \
             -gpu_id ${md_gpu_id} -nt ${md_threads} -pin on -v
 
         # 11. NPT unrestrained — 500 ps
-        run_stage npt_prod_grompp ${GMX} grompp -f "${MDP_DIR}/npt_prod.mdp" \
+        EXPECT_FILE=npt_prod.tpr run_stage npt_prod_grompp ${GMX} grompp -f "${MDP_DIR}/npt_prod.mdp" \
             -c npt_restr.gro -t npt_restr.cpt -p topol.top -n index.ndx \
             -o npt_prod.tpr -maxwarn 3
-        run_stage npt_prod_run ${GMX} mdrun -deffnm npt_prod \
+        EXPECT_FILE=npt_prod.gro run_stage npt_prod_run ${GMX} mdrun -deffnm npt_prod \
             -gpu_id ${md_gpu_id} -nt ${md_threads} -pin on -v
 
         # 12. Production — 100 ns (or override)
@@ -304,10 +368,10 @@ PYEOF
         awk -v nst="${NSTEPS_PROD}" '/^nsteps/ {print "nsteps = "nst; next} {print}' \
             "${MDP_DIR}/md_prod.mdp" > md_prod_local.mdp
 
-        run_stage md_grompp ${GMX} grompp -f md_prod_local.mdp \
+        EXPECT_FILE=md.tpr run_stage md_grompp ${GMX} grompp -f md_prod_local.mdp \
             -c npt_prod.gro -t npt_prod.cpt -p topol.top -n index.ndx \
             -o md.tpr -maxwarn 3
-        run_stage md_run ${GMX} mdrun -deffnm md \
+        EXPECT_FILE=md.gro run_stage md_run ${GMX} mdrun -deffnm md \
             -gpu_id ${md_gpu_id} -nt ${md_threads} -pin on -v -cpi md.cpt
 
         # 13. Analysis: RMSD backbone, RMSD ligand, RMSF, H-bond
