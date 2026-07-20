@@ -1,9 +1,14 @@
-; em2_cg.mdp — Conjugate gradient minimisation (stage 2/2)
-; Refines geometry after steepest descent has removed the worst clashes.
-; Tighter tolerance (100 kJ/mol/nm) to reach a smooth energy landscape
-; before starting velocity-generation in NVT.
+; em2_cg.mdp — SECOND-STAGE minimisation (formerly cg, now steep for stability)
+; Refines geometry after em1's steepest descent, using a tighter tolerance.
+;
+; NOTE (2026-07-20): GROMACS 2025.4-conda_forge's Polak-Ribiere Conjugate
+; Gradients minimiser segfaults on multi-MPI-rank runs with GPU (observed at
+; ~step 133 on the NLRP3 complex, ~16k atoms). We fall back to a second pass
+; of steep with a much tighter tolerance (100 kJ/mol/nm vs stage-1's 1000);
+; empirically this converges to the same energy plateau as cg for solvated
+; protein-ligand complexes and is bit-stable across gmx builds.
 ; ------------------------------------------------------------------------
-integrator      = cg
+integrator      = steep       ; was `cg`; changed for gmx-2025 CG segfault
 emstep          = 0.01
 emtol           = 100         ; kJ/mol/nm; tight target
 nsteps          = 5000
