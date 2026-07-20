@@ -7,7 +7,7 @@
 # Output: results_v4.3/vina2000/scored.csv with columns
 #         smiles, stg_score, vina_dG_kcal, pose_pdbqt
 # ============================================================================
-set -euo pipefail
+set -eo pipefail   # NOTE: no -u; conda activate hooks reference unset vars
 IFS=$'\n\t'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

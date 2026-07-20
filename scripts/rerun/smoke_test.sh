@@ -15,7 +15,9 @@
 # Purpose: catch environment / topology / gmx_MMPBSA issues before the
 # 4-day full run kicks off.
 # ============================================================================
-set -euo pipefail
+set -eo pipefail   # NOTE: no -u here.  gromacs/conda activate hooks
+                   # (e.g. gromacs_deactivate.sh) reference unset vars,
+                   # which triggers "unbound variable" under set -u.
 IFS=$'\n\t'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

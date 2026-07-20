@@ -11,7 +11,7 @@
 # Idempotent: skips compounds where mmpbsa_summary.json already exists.
 # Continues past PB failures because GB is often still valid.
 # ============================================================================
-set -euo pipefail
+set -eo pipefail   # NOTE: no -u; conda activate hooks reference unset vars
 IFS=$'\n\t'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

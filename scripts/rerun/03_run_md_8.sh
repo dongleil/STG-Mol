@@ -16,7 +16,7 @@
 #   bash 03_run_md_8.sh --total_ns 5        # short run (smoke test)
 #   bash 03_run_md_8.sh --only 1            # single compound
 # ============================================================================
-set -euo pipefail
+set -eo pipefail   # NOTE: no -u; conda activate hooks reference unset vars
 IFS=$'\n\t'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
