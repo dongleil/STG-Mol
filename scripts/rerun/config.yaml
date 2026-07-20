@@ -14,9 +14,11 @@ receptor_pdb:    /home/dll/NLRP3_2/src/receptor/7PZC_chainA_protein_only.pdb
 input_csv:       /home/dll/NLRP3_2/data/final_top2000_by_score.csv
 output_dir:      /home/dll/NLRP3_2/results_v4.3
 
-# STG-Mol V3-random checkpoint (for Stage F re-scoring the 8 selected)
-stg_mol_ckpt_dir: /home/dll/NLRP3_2/models/v26_v3_random_5seeds
-stg_mol_config:   /home/dll/NLRP3_2/configs/train_v26_v3_random.yaml
+# STG-Mol V3-random checkpoint (for Stage F re-scoring the 8 selected).
+# Models live on the Windows side; WSL sees them under /mnt/d/. If you
+# clone STG-Mol under WSL and retrain, override to a WSL-native path.
+stg_mol_ckpt_dir: /mnt/d/dll/STG-Mol/results/v26_v3_random/v26_v3_random_5seeds_20260713_193347/models
+stg_mol_config:   /mnt/d/dll/STG-Mol/configs/train_v26_v3_random.yaml
 
 # ── Docking box (CRID3 8GI centroid in 7PZC chain A, verified 0.06 Å) ──
 box_center: [192.9, 204.7, 119.7]
