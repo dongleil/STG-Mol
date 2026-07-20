@@ -17,7 +17,11 @@ nstfout                 = 0
 nstenergy               = 5000
 nstlog                  = 5000
 nstxout-compressed      = 5000
-compressed-x-grps       = System
+; Note: if compressed-x-grps is omitted, gmx defaults to writing ALL atoms.
+; Using the literal 'System' here fails when -n index.ndx is supplied but
+; the index file doesn't explicitly define a 'System' group. Leaving this
+; line out is the portable choice.
+; compressed-x-grps     = System
 
 ; Constraints
 continuation            = yes
@@ -52,7 +56,10 @@ compressibility         = 4.5e-5
 
 ; Centre-of-mass motion removal for the whole system
 comm-mode               = Linear
-comm-grps               = System
+; comm-grps default = the whole system, which is what we want.
+; Same reasoning as compressed-x-grps: 'System' isn't a valid group name
+; when -n index.ndx supplies only Protein_LIG / Water_and_ions / LIG / Protein.
+; comm-grps             = System
 nstcomm                 = 100
 
 gen_vel                 = no

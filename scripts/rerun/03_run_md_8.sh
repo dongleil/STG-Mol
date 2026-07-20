@@ -334,6 +334,7 @@ def block(name, ids):
         out.append(' '.join(f'{x:4d}' for x in ids[i:i+15]))
     return '\n'.join(out) + '\n'
 open('index.ndx','w').write(
+    block('System', protein + ligand + water_ions) +
     block('Protein_LIG', protein_lig) +
     block('Water_and_ions', water_ions) +
     block('LIG', ligand) +
