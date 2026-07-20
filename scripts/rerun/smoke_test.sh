@@ -21,6 +21,25 @@ IFS=$'\n\t'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CFG="${SCRIPT_DIR}/config.yaml"
 
+# ---- Conda: locate conda.sh so we can `activate` inside a script ----
+# When invoked from `gmx_cuda` env (recommended so gmx is in PATH),
+# we still need `nlrp3` for Vina/rdkit and `admet_ai` for stage E.
+_conda_sh=""
+for c in "$HOME/miniconda3/etc/profile.d/conda.sh" \
+         "$HOME/anaconda3/etc/profile.d/conda.sh" \
+         "/opt/conda/etc/profile.d/conda.sh"; do
+    [[ -f "$c" ]] && _conda_sh="$c" && break
+done
+if [[ -z "${_conda_sh}" ]] && [[ -n "${CONDA_EXE:-}" ]]; then
+    _conda_sh="$(dirname "${CONDA_EXE}")/../etc/profile.d/conda.sh"
+fi
+if [[ -z "${_conda_sh}" || ! -f "${_conda_sh}" ]]; then
+    echo "! Cannot locate conda.sh; please invoke this script from a conda-activated shell." >&2
+    exit 1
+fi
+# shellcheck disable=SC1090
+source "${_conda_sh}"
+
 output_dir=$(python3 -c "import yaml; print(yaml.safe_load(open('${CFG}'))['output_dir'])")
 input_csv=$(python3 -c "import yaml; print(yaml.safe_load(open('${CFG}'))['input_csv'])")
 
@@ -61,38 +80,55 @@ trap 'cp "${CFG}.bak.smoke" "${CFG}" 2>/dev/null; rm -f "${CFG}.bak.smoke" "${TM
 
 # ── Stage A (Vina 5-ligand) ────────────────────────────────────────────
 echo ""; echo "[smoke] Stage A — Vina on 5 ligands (exh=8)"
+conda activate nlrp3
 bash "${SCRIPT_DIR}/01_vina_top2000.sh"
+conda deactivate
 
 # ── Stage B (Select top-1) ─────────────────────────────────────────────
 echo ""; echo "[smoke] Stage B — select top 1 candidate"
+conda activate nlrp3
 python3 "${SCRIPT_DIR}/02_select_top8.py" --final_n 1 --top_n_vina 3 --cutoff 0.99
+conda deactivate
 
 # ── Stage C (MD) ───────────────────────────────────────────────────────
 echo ""; echo "[smoke] Stage C — MD (compound 1, --total_ns 5 --no_extend)"
+# MD needs BOTH: acpype (in nlrp3) + gmx (in gmx_cuda). The 03 script
+# should handle env switching internally, but we activate gmx_cuda as
+# the "outer" env so gmx is default in PATH.
+conda activate gmx_cuda
 bash "${SCRIPT_DIR}/03_run_md_8.sh" --only 1 --total_ns 5 --no_extend
+conda deactivate
 
 # ── Stage D (MMPBSA) — tiny window ─────────────────────────────────────
 echo ""; echo "[smoke] Stage D — MMPBSA (frames 3-5 ns, ~10 frames)"
+conda activate nlrp3   # gmx_MMPBSA lives here
 bash "${SCRIPT_DIR}/04_run_mmpbsa_8.sh"
+conda deactivate
 
 # ── Stage E (ADMET) — single-SMILES run ─────────────────────────────────
 echo ""; echo "[smoke] Stage E — ADMET on compound 1 only"
+conda activate admet_ai
 mkdir -p "${output_dir}/admet_smoke"
 head -1 "${output_dir}/candidates_v4.3/top8.smi" > "${output_dir}/admet_smoke/one.smi"
 python3 "${SCRIPT_DIR}/05_run_admet_full.py" \
     --input "${output_dir}/admet_smoke/one.smi" \
     --output_csv "${output_dir}/admet_smoke/admet_full.csv" \
     --output_md  "${output_dir}/admet_smoke/table_5_10.md"
+conda deactivate
 
 # ── Stage F (STG-Mol re-score) ─────────────────────────────────────────
 echo ""; echo "[smoke] Stage F — STG-Mol V3-random re-score"
+conda activate nlrp3  # needs torch + rdkit for STG-Mol featurisation
 python3 "${SCRIPT_DIR}/06_score_v3random.py" || {
     echo "! 06_score_v3random failed — check ckpt paths in config.yaml"
 }
+conda deactivate
 
 # ── Stage G — table aggregation smoke ──────────────────────────────────
 echo ""; echo "[smoke] Stage G — aggregate tables"
+conda activate nlrp3   # any env with pyyaml + pandas
 python3 "${SCRIPT_DIR}/07_aggregate_tables.py"
+conda deactivate
 
 echo ""
 echo "═══════════════════════════════════════════════════════════════"

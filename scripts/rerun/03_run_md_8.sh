@@ -85,6 +85,23 @@ GMX="${gmx_executable}"
 DT_S=$(python3 -c "print(${md_dt_fs} * 1e-15)")
 NSTEPS_PROD=$(python3 -c "print(int(${md_total_ns} * 1e-9 / ${DT_S}))")
 
+# ---- acpype cross-env invocation ------------------------------------
+# acpype lives in the `nlrp3` conda env, but this script normally runs
+# under `gmx_cuda` (where gmx is on PATH). If acpype is on PATH we call
+# it directly; otherwise fall back to `conda run -n nlrp3 acpype`.
+if command -v acpype >/dev/null 2>&1; then
+    ACPYPE_CMD="acpype"
+else
+    if ! command -v conda >/dev/null 2>&1; then
+        for c in "$HOME/miniconda3/etc/profile.d/conda.sh" \
+                 "$HOME/anaconda3/etc/profile.d/conda.sh"; do
+            [[ -f "$c" ]] && source "$c" && break
+        done
+    fi
+    ACPYPE_CMD="conda run --no-capture-output -n nlrp3 acpype"
+    echo "[env] acpype not on PATH; using: ${ACPYPE_CMD}"
+fi
+
 echo "============================================================"
 echo "  03_run_md_8 — GROMACS MD driver"
 echo "  candidates dir: ${cand_dir}"
@@ -134,7 +151,7 @@ run_compound () {
 
         # 1. Ligand parametrisation with acpype (GAFF2)
         run_stage acpype bash -c "
-            acpype -i '${pose_pdb}' -b lig -o gmx -c bcc -a gaff2 -n 0
+            ${ACPYPE_CMD} -i '${pose_pdb}' -b lig -o gmx -c bcc -a gaff2 -n 0
         "
         # Locate acpype output (older/newer versions place it in .acpype)
         local acp_dir="lig.acpype"

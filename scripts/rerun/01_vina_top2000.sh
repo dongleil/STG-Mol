@@ -13,18 +13,39 @@ IFS=$'\n\t'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CFG="${SCRIPT_DIR}/config.yaml"
 
-# ---- parse yaml (bash-native, robust to minor formatting) ----
-receptor=$(awk '/^receptor_pdbqt:/ {print $2}' "$CFG")
-input_csv=$(awk '/^input_csv:/ {print $2}' "$CFG")
-output_dir=$(awk '/^output_dir:/ {print $2}' "$CFG")
-center=$(awk '/^box_center:/ {gsub(/[\[\],]/, ""); print $2, $3, $4}' "$CFG")
-box_size=$(awk '/^box_size:/ {gsub(/[\[\],]/, ""); print $2, $3, $4}' "$CFG")
-read -r cx cy cz <<<"$center"
-read -r sx sy sz <<<"$box_size"
-exh=$(awk '/^vina_exhaustiveness:/ {print $2}' "$CFG")
-seed=$(awk '/^vina_seed:/ {print $2}' "$CFG")
-nposes=$(awk '/^vina_n_poses:/ {print $2}' "$CFG")
-nworkers=$(awk '/^vina_n_workers:/ {print $2}' "$CFG")
+# ---- ensure we're in the `nlrp3` conda env (has rdkit + vina + meeko) ----
+# If invoked from another env (e.g. gmx_cuda), switch. Detect via presence
+# of rdkit; if missing, source conda + activate.
+if ! python3 -c "import rdkit" >/dev/null 2>&1; then
+    if [[ -z "${CONDA_EXE:-}" ]]; then
+        # try common location
+        [[ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]] && \
+            source "$HOME/miniconda3/etc/profile.d/conda.sh"
+    else
+        source "$(dirname "${CONDA_EXE}")/../etc/profile.d/conda.sh"
+    fi
+    conda activate nlrp3
+    echo "[env] switched to conda env: $(basename "$CONDA_PREFIX")"
+fi
+python3 -c "import rdkit, meeko; print(f'[env] rdkit {rdkit.__version__}, meeko {meeko.__version__ if hasattr(meeko, \"__version__\") else \"?\"}')"
+
+# ---- parse yaml with python (awk can't handle array syntax) ----
+eval "$(python3 - "$CFG" <<'PYEOF'
+import sys, yaml
+c = yaml.safe_load(open(sys.argv[1]))
+cx, cy, cz = c['box_center']
+sx, sy, sz = c['box_size']
+print(f'receptor={c["receptor_pdbqt"]!r}')
+print(f'input_csv={c["input_csv"]!r}')
+print(f'output_dir={c["output_dir"]!r}')
+print(f'cx={cx}'); print(f'cy={cy}'); print(f'cz={cz}')
+print(f'sx={sx}'); print(f'sy={sy}'); print(f'sz={sz}')
+print(f'exh={c["vina_exhaustiveness"]}')
+print(f'seed={c["vina_seed"]}')
+print(f'nposes={c["vina_n_poses"]}')
+print(f'nworkers={c["vina_n_workers"]}')
+PYEOF
+)"
 
 work="${output_dir}/vina2000"
 mkdir -p "${work}/pdbqt" "${work}/poses" "${work}/logs"
