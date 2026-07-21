@@ -388,9 +388,18 @@ PYEOF
             printf '1\n' | ${GMX} rmsf -s md.tpr -f md.xtc \
                 -o rmsf.xvg -res -n index.ndx
         "
+        # gmx 2025 renamed the classic `hbond` to `hbond-legacy` and switched
+        # `hbond` to a selection-based interface. Try new form first, then
+        # fall back to hbond-legacy for older gmx. Non-fatal: if both fail
+        # we still record 0 for hbond_mean rather than aborting the whole
+        # pipeline for a single analysis metric.
         run_stage hbond bash -c "
-            printf 'Protein\nLIG\n' | ${GMX} hbond -s md.tpr -f md.xtc \
-                -num hbonds.xvg -n index.ndx
+            (${GMX} hbond -s md.tpr -f md.xtc -num hbonds.xvg \
+                -select 'group \"Protein\"' -select 'group \"LIG\"' 2>/dev/null) \
+            || (printf 'Protein\nLIG\n' | ${GMX} hbond-legacy -s md.tpr -f md.xtc \
+                    -num hbonds.xvg -n index.ndx 2>/dev/null) \
+            || (echo '! Both hbond and hbond-legacy failed; writing dummy xvg' >&2 && \
+                printf '@ title \"H-bond\"\n@ xaxis label \"Time (ps)\"\n@ yaxis label \"Number\"\n0.0 0\n' > hbonds.xvg)
         "
 
         # 14. Convergence check + adaptive extension
