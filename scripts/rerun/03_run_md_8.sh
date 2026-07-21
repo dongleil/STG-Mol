@@ -450,6 +450,14 @@ from pathlib import Path
 total_ns  = float(total_ns);   last_ns   = float(last_ns)
 tol_A     = float(tol_A);      extend_ns = float(extend_ns)
 analysis_start_ns = float(analysis_start_ns)
+# For short (smoke-test) runs, the configured analysis_start_ns (default
+# 20 ns) may exceed total_ns and filter out every frame → all analytics
+# collapse to 0.0. Clamp to at most 20% of total_ns.
+if analysis_start_ns >= total_ns * 0.9:
+    new_start = max(0.0, total_ns * 0.2)
+    print(f'  [analysis] clamping analysis_start_ns from {analysis_start_ns} '
+          f'to {new_start:.2f} (total_ns = {total_ns})', file=sys.stderr)
+    analysis_start_ns = new_start
 do_check = conv_check.lower() == 'true' and skip_extend.lower() != 'true'
 
 def read_xvg(path):
