@@ -311,8 +311,27 @@ PYEOF
                 | ${GMX} make_ndx -f em2.gro -o index.ndx
         "
         # NOTE: default numeric groups vary — driver may need tweaking per system.
-        # Defensive fallback: if the names weren't created, regenerate manually.
+        # Defensive fallback: trigger it if
+        #   (a) the group names weren't created at all, OR
+        #   (b) the LIG group ended up EMPTY (main path matched wrong residue).
+        # A working LIG group needs a non-header line with >=1 atom index
+        # under `[ LIG ]`. If either check fails, wipe index.ndx and rebuild
+        # via Python parser (which handles UNL/MOL/lig case-insensitively).
+        need_fallback=false
         if ! grep -q 'Protein_LIG' index.ndx 2>/dev/null; then
+            need_fallback=true
+            echo "  [ndx] Protein_LIG group missing → fallback"
+        else
+            lig_atoms=$(awk '/\[ LIG \]/{f=1;next} /^\[/ {f=0} f{c+=NF} END{print c+0}' index.ndx)
+            if [[ "${lig_atoms}" -lt 1 ]]; then
+                need_fallback=true
+                echo "  [ndx] LIG group empty (${lig_atoms} atoms) → fallback"
+            else
+                echo "  [ndx] LIG group has ${lig_atoms} atoms — OK"
+            fi
+        fi
+        if [[ "${need_fallback}" == "true" ]]; then
+            rm -f index.ndx
             python3 - <<PYEOF
 # Fallback: build index.ndx by parsing atom groups from em2.gro
 import re, pathlib
