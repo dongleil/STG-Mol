@@ -319,14 +319,30 @@ import re, pathlib
 gro = pathlib.Path('em2.gro').read_text().splitlines()
 n = int(gro[1])
 protein, ligand, water_ions = [], [], []
+# Ligand residue name detection: acpype normally writes 'LIG', but with
+# some settings (unknown SMILES / lowercase / -b flag missing) it can be
+# 'UNL', 'MOL', 'lig', or a stripped 3-letter code. Match case-insensitively
+# against the known set to be robust.
+LIG_RESNAMES = {'LIG', 'UNL', 'MOL', 'LNK', 'LG1'}
+WATER_ION_RESNAMES = {'SOL', 'HOH', 'WAT', 'NA', 'CL', 'K',
+                       'MG', 'CA', 'ZN', 'NA+', 'CL-'}
 for i, line in enumerate(gro[2:2+n], start=1):
-    resname = line[5:10].strip()
-    if resname == 'LIG':
+    resname = line[5:10].strip().upper()
+    if resname in LIG_RESNAMES:
         ligand.append(i)
-    elif resname in ('SOL','HOH','NA','CL','K','MG','CA','ZN'):
+    elif resname in WATER_ION_RESNAMES:
         water_ions.append(i)
     else:
         protein.append(i)
+print(f'Fallback index: {len(protein)} protein / {len(ligand)} ligand / {len(water_ions)} water+ion atoms')
+if len(ligand) == 0:
+    print('! WARNING: 0 ligand atoms detected. Residue names in .gro:')
+    seen = {}
+    for line in gro[2:2+n]:
+        r = line[5:10].strip()
+        seen[r] = seen.get(r, 0) + 1
+    for r, c in sorted(seen.items(), key=lambda kv: -kv[1])[:10]:
+        print(f'    {r!r}: {c}')
 protein_lig = protein + ligand
 def block(name, ids):
     out = [f'[ {name} ]']
