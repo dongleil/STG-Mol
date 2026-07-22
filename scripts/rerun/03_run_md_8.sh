@@ -272,9 +272,24 @@ if '[ system ]' in top_in:
 else:
     top_in = top_in + lig_itp_include
 
-# (c) Append LIG line to [ molecules ]
-if not re.search(r'^\s*LIG\s+\d', top_in, re.MULTILINE):
-    top_in = top_in.rstrip() + '\nLIG              1\n'
+# (c) Append ligand molecule line to [ molecules ].
+# Read the actual moleculetype name from lig.itp — acpype writes 'lig'
+# lowercase by default, but historic builds used 'LIG' or 'MOL'. parmed
+# (used by gmx_MMPBSA) is case-sensitive, so mismatch → "Structure
+# contains LIG molecules, but no template defined".
+lig_top_text = Path('lig.itp').read_text()
+mt_match = re.search(r'^\[\s*moleculetype\s*\]\s*\n(?:\s*;[^\n]*\n)*\s*(\S+)',
+                      lig_top_text, re.MULTILINE)
+if mt_match:
+    lig_name = mt_match.group(1)
+    print(f'ligand moleculetype detected: {lig_name!r}')
+else:
+    lig_name = 'lig'
+    print('! could not detect ligand moleculetype name in lig.itp, defaulting to \'lig\'')
+
+# Append only if no line for this exact name (case-sensitive match)
+if not re.search(rf'^\s*{re.escape(lig_name)}\s+\d', top_in, re.MULTILINE):
+    top_in = top_in.rstrip() + f'\n{lig_name}              1\n'
 
 Path('topol.top').write_text(top_in)
 print('complex.gro atoms =', total)
