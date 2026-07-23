@@ -72,7 +72,14 @@ from torch.utils.data import Dataset, DataLoader
 from torch_geometric.data import Data, Batch
 from torch_geometric.nn import MessagePassing, global_mean_pool, global_max_pool, global_add_pool
 from torch_geometric.loader import DataLoader as PyGDataLoader
-from torch_geometric.nn import radius_graph
+# `torch_geometric.nn.radius_graph` in PyG 2.5+ requires pyg-lib>=0.6.0,
+# which itself needs torch>=2.6. On torch 2.5 we fall back to
+# torch_cluster.radius_graph (older API, ships as a separate wheel).
+# The two functions accept the same (pos, r, batch, loop) signature.
+try:
+    from torch_cluster import radius_graph
+except ImportError:
+    from torch_geometric.nn import radius_graph
 from torch_geometric.utils import softmax
 
 # Mol2vec
