@@ -149,14 +149,20 @@ def table_5_9(cfg, out_dir):
 
 
 def table_5_10(cfg, out_dir):
-    """Copy ADMET table produced by 05."""
-    src = Path(cfg['output_dir']) / 'admet' / 'table_5_10.md'
-    dst = out_dir / 'table_5_10.md'
-    if src.exists():
-        shutil.copyfile(src, dst)
-        print(f'Wrote {dst} (from 05 output)')
-    else:
-        print('! 05 output missing → skipping table 5.10')
+    """Copy ADMET table produced by 05 (or the smoke_test variant)."""
+    candidates = [
+        Path(cfg['output_dir']) / 'admet' / 'table_5_10.md',
+        Path(cfg['output_dir']) / 'admet_smoke' / 'table_5_10.md',
+        Path(cfg['output_dir']) / 'table_5_10.md',
+    ]
+    for src in candidates:
+        if src.exists():
+            dst = out_dir / 'table_5_10.md'
+            shutil.copyfile(src, dst)
+            print(f'Wrote {dst} (from {src.name})')
+            return
+    print(f'! ADMET output missing (looked in {[str(c) for c in candidates]}) → '
+          f'skipping table 5.10')
 
 
 def main():

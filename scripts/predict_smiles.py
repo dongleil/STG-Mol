@@ -137,11 +137,22 @@ class _ChemBERTaLookup:
 
 
 def _featurise(smi, featurizer, conformer_gen, cutoff):
-    """Return (v1d, g2d, g3d) or (None, None, None) on failure."""
+    """Return (v1d, g2d, g3d) or (None, None, None) on failure.
+
+    Mol2Vec is missing some acpype-derived SMILES fragments (esp. novel
+    scaffolds); on failure we zero-fill the 1D vector rather than skip
+    the whole molecule — 2D/3D branches still carry most of the signal.
+    Only if 2D or 3D graph construction also fails do we fall back to None.
+    """
     try:
         v1d = np.asarray(featurizer.featurize([smi])[0], dtype=np.float32)
-    except Exception:
-        return None, None, None
+    except Exception as e:
+        # zero-fill v1d rather than dropping the compound entirely
+        emb_dim = int(getattr(featurizer, 'hidden_size',
+                              getattr(featurizer, 'embedding_dim', 300)))
+        v1d = np.zeros(emb_dim, dtype=np.float32)
+        print(f'   ! Mol2Vec featurise failed on {smi[:50]!r}: '
+              f'{type(e).__name__} — using zero 1D embedding')
     g2d = mol_to_2d_graph(smi)
     g3d = mol_to_3d_graph(smi, cutoff, conformer_gen)
     if g2d is None or g3d is None:
