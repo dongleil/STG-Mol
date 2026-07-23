@@ -143,20 +143,42 @@ def _featurise(smi, featurizer, conformer_gen, cutoff):
     scaffolds); on failure we zero-fill the 1D vector rather than skip
     the whole molecule — 2D/3D branches still carry most of the signal.
     Only if 2D or 3D graph construction also fails do we fall back to None.
+
+    Wrap every step in a try/except: some downstream helpers raise instead
+    of returning None on failure (e.g. ETKDG can throw on radicals /
+    hypervalent atoms), and we don't want a single problematic SMILES to
+    take down the whole ensemble scoring.
     """
+    # 1D — Mol2Vec (zero-fill on failure)
     try:
         v1d = np.asarray(featurizer.featurize([smi])[0], dtype=np.float32)
     except Exception as e:
-        # zero-fill v1d rather than dropping the compound entirely
         emb_dim = int(getattr(featurizer, 'hidden_size',
                               getattr(featurizer, 'embedding_dim', 300)))
         v1d = np.zeros(emb_dim, dtype=np.float32)
         print(f'   ! Mol2Vec featurise failed on {smi[:50]!r}: '
               f'{type(e).__name__} — using zero 1D embedding')
-    g2d = mol_to_2d_graph(smi)
-    g3d = mol_to_3d_graph(smi, cutoff, conformer_gen)
-    if g2d is None or g3d is None:
+
+    # 2D graph
+    try:
+        g2d = mol_to_2d_graph(smi)
+    except Exception as e:
+        print(f'   ! 2D graph failed on {smi[:50]!r}: {type(e).__name__}: {e}')
         return None, None, None
+    if g2d is None:
+        print(f'   ! 2D graph returned None for {smi[:50]!r}')
+        return None, None, None
+
+    # 3D graph (ETKDG conformer + SphereNet-ready features)
+    try:
+        g3d = mol_to_3d_graph(smi, cutoff, conformer_gen)
+    except Exception as e:
+        print(f'   ! 3D graph failed on {smi[:50]!r}: {type(e).__name__}: {e}')
+        return None, None, None
+    if g3d is None:
+        print(f'   ! 3D graph returned None for {smi[:50]!r}')
+        return None, None, None
+
     return v1d, g2d, g3d
 
 
