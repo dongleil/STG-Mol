@@ -129,6 +129,7 @@ def table_5_9(cfg, out_dir):
              '| Compound | PB ΔG (kcal/mol) | GB ΔG (kcal/mol) | E_vdW | E_ele | Status |',
              '|---:|:---:|:---:|:---:|:---:|:---|']
     n = cfg['final_n_candidates']
+    any_pending = False
     for i in range(1, n + 1):
         sj = md_root / f'comp_{i}' / 'mmpbsa_summary.json'
         if not sj.exists():
@@ -143,9 +144,22 @@ def table_5_9(cfg, out_dir):
         gb_s = f'{gb["deltaG"]:+.2f} ± {gb["sem"]:.2f}' if gb else '—'
         vdw_s = f'{vdw["value"]:+.2f}' if vdw else '—'
         eel_s = f'{eel["value"]:+.2f}' if eel else '—'
-        lines.append(f'| {i} | {pb_s} | {gb_s} | {vdw_s} | {eel_s} | {d.get("status","?")} |')
+        status = d.get('status', '?')
+        if status == 'pending':
+            any_pending = True
+        lines.append(f'| {i} | {pb_s} | {gb_s} | {vdw_s} | {eel_s} | {status} |')
+    if any_pending:
+        lines += ['', '**Note.** MMPBSA marked *pending* reflects a known ',
+                  'incompatibility between gmx_MMPBSA 1.6.5, acpype-derived ',
+                  'GAFF2 topology, and GROMACS 2025 output format. GB and PB ',
+                  'sander calculations complete cleanly (per-frame `.mdout` ',
+                  'files retained in `comp_i/`); only the aggregating parser ',
+                  'trips. Alternative free-energy analysis (LIE / native-Amber ',
+                  'MMPBSA with prmtop rebuilt from tleap) is planned for the ',
+                  'revision.']
     (out_dir / 'table_5_9.md').write_text('\n'.join(lines) + '\n')
-    print(f'Wrote {out_dir / "table_5_9.md"}')
+    print(f'Wrote {out_dir / "table_5_9.md"}'
+          f'{" (with MMPBSA-pending note)" if any_pending else ""}')
 
 
 def table_5_10(cfg, out_dir):

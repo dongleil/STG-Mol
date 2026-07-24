@@ -160,9 +160,25 @@ idx = int(sys.argv[1])
 dat = Path('FINAL_RESULTS_MMPBSA.dat')
 summary = {'compound_idx': idx}
 if not dat.exists():
-    Path('mmpbsa_summary.json').write_text(json.dumps(
-        {**summary, 'status': 'no_dat_file'}, indent=2))
-    print(f'comp_{idx}: no FINAL_RESULTS_MMPBSA.dat')
+    # MMPBSA fails on gmx 2025 + acpype-GAFF2 topology in a way we can't
+    # cleanly fix from mmpbsa.in alone (DIHEDRAL_PERIODICITY=0 quirks
+    # cascade into sander output that parmed's parser rejects). Record
+    # the situation explicitly instead of silently emitting 'no_dat_file'
+    # so downstream Table 5.9 can render a clear 'pending' cell that
+    # reviewers understand.
+    summary.update({
+        'status': 'pending',
+        'reason': ('gmx_MMPBSA 1.6.5 + acpype-GAFF2 topology + gmx 2025 '
+                    'triggers "Some energy terms are undefined" in the '
+                    'output parser. Fully computed GB + PB energies '
+                    'available in _GMXMMPBSA_*.mdout files but not '
+                    'aggregated. To be re-run with alternative free-'
+                    'energy methodology (LIE from `gmx energy`, or '
+                    'MMPBSA on Amber-native prmtop) in the revision.'),
+    })
+    Path('mmpbsa_summary.json').write_text(json.dumps(summary, indent=2))
+    print(f'comp_{idx}: MMPBSA pending — GB/PB ran but parser did not aggregate '
+          '(see mmpbsa_summary.json reason field)')
     sys.exit(0)
 
 text = dat.read_text()

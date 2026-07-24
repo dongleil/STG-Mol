@@ -59,7 +59,14 @@ npt_restr_ps:   200             # Parrinello-Rahman with restraints
 npt_prod_ps:    500             # NPT no restraints (still not "production")
 
 # Production
-md_total_ns: 100                # 100 ns to match paper
+md_total_ns: 50                 # 50 ns; on RTX 4090 with a 200k-atom
+                                # system this is ~15 h/compound.
+                                # First 20 ns discarded as further
+                                # equilibration; RMSD / MMPBSA use
+                                # frames 20-50 ns (30 ns analysis window).
+                                # Adaptive extension to 100 ns kicks in
+                                # if backbone RMSD is still drifting in
+                                # the last 30 ns of production.
 md_dt_fs:    2                  # 2 fs with LINCS
 md_output_dt_ps: 10             # trajectory every 10 ps → 10000 frames
 md_gpu_id: 0
@@ -69,7 +76,7 @@ md_threads: 8
 md_convergence_check: true
 md_convergence_last_ns: 30      # analyse RMSD in last 30 ns
 md_convergence_tol_A: 0.5       # 95% CI drift threshold
-md_extend_to_ns: 200            # if not converged, extend to 200 ns
+md_extend_to_ns: 100            # if not converged, extend 50 -> 100 ns
 
 # Analysis window (post-convergence)
 md_analysis_start_ns: 20        # discard 0-20 ns as further equilibration
